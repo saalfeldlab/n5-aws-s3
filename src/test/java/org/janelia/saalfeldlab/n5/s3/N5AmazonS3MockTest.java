@@ -32,7 +32,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import io.findify.s3mock.S3Mock;
 
 /**
- * Initiates testing of Amazon Web Services S3-based N5 implementation using S3 mock library.
+ * Initiates testing of the Amazon Web Services S3-based N5 implementation using S3 mock library.
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */

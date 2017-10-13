@@ -44,6 +44,7 @@ import org.janelia.saalfeldlab.n5.AbstractN5ReaderWriter;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
@@ -67,14 +68,14 @@ public class N5AmazonS3ReaderWriter extends AbstractN5ReaderWriter {
 	private final String bucketName;
 
 	/**
-	 * Opens an {@link N5Reader} at a given base path with a custom
-	 * {@link GsonBuilder} to support custom attributes.
+	 * Opens an {@link N5Reader}/{@link N5Writer} using an {@link AmazonS3} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the base path does not exist, it will not be created and all
-	 * subsequent attempts to read attributes, groups, or datasets
-	 * will fail with an {@link IOException}.
+	 * If the bucket does not exist, make sure to create it by calling {@link #createContainer()}
+	 * before attempting to read or write attributes, groups, or datasets, otherwise all such attempts will fail.
 	 *
-	 * @param basePath n5 base path
+	 * @param s3
+	 * @param bucketName
 	 * @param gsonBuilder
 	 */
 	public N5AmazonS3ReaderWriter(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) {
@@ -85,13 +86,13 @@ public class N5AmazonS3ReaderWriter extends AbstractN5ReaderWriter {
 	}
 
 	/**
-	 * Opens an {@link N5Reader} at a given base path.
+	 * Opens an {@link N5Reader}/{@link N5Writer} using an {@link AmazonS3} client and a given bucket name.
 	 *
-	 * If the base path does not exist, it will not be created and all
-	 * subsequent attempts to read or write attributes, groups, or datasets
-	 * will fail with an {@link IOException}.
+	 * If the bucket does not exist, make sure to create it by calling {@link #createContainer()}
+	 * before attempting to read or write attributes, groups, or datasets, otherwise all such attempts will fail.
 	 *
-	 * @param basePath n5 base path
+	 * @param s3
+	 * @param bucketName
 	 */
 	public N5AmazonS3ReaderWriter(final AmazonS3 s3, final String bucketName) {
 
@@ -118,7 +119,7 @@ public class N5AmazonS3ReaderWriter extends AbstractN5ReaderWriter {
 	@Override
 	public boolean exists(final String pathName) {
 
-		final String metadataKey = Paths.get(pathName, jsonFile).toString();
+		final String metadataKey = getAttributesPath(pathName).toString();
 		return s3.doesObjectExist(bucketName, removeFrontDelimiter(metadataKey));
 	}
 
@@ -216,20 +217,6 @@ public class N5AmazonS3ReaderWriter extends AbstractN5ReaderWriter {
 		return subGroups.toArray(new String[subGroups.size()]);
 	}
 
-	/**
-	 * Removes a group or dataset (directory and all contained files).
-	 *
-	 * <p><code>{@link #remove(String) remove("")}</code> or
-	 * <code>{@link #remove(String) remove("")}</code> will delete this N5
-	 * container.  Please note that no checks for safety will be performed,
-	 * e.g. <code>{@link #remove(String) remove("..")}</code> will try to
-	 * recursively delete the parent directory of this N5 container which
-	 * only fails because it attempts to delete the parent directory before it
-	 * is empty.
-	 *
-	 * @param pathName group path
-	 * @throws IOException
-	 */
 	@Override
 	public boolean remove(final String pathName) throws IOException {
 
@@ -286,7 +273,8 @@ public class N5AmazonS3ReaderWriter extends AbstractN5ReaderWriter {
 
 	/**
 	 * When listing children objects for a group, must append a delimiter to the path (e.g. group/data/).
-	 * This is necessary for not including wrong objects in the filtered set (e.g. group/data-2/attributes.json when group/data is passed without the last slash)
+	 * This is necessary for not including wrong objects in the filtered set
+	 * (e.g. group/data-2/attributes.json when group/data is passed without the last slash).
 	 *
 	 * @param pathName
 	 * @return

@@ -25,8 +25,6 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import java.io.IOException;
-
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
@@ -42,14 +40,13 @@ import com.google.gson.GsonBuilder;
 public abstract class N5AmazonS3Factory {
 
 	/**
-	 * Opens an {@link N5Reader} at a given base path with a custom
-	 * {@link GsonBuilder} to support custom attributes.
+	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the base path does not exist, it will not be created and all
-	 * subsequent attempts to read attributes, groups, or datasets
-	 * will fail with an {@link IOException}.
+	 * If the bucket does not exist, all subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
-	 * @param basePath n5 base path
+	 * @param s3
+	 * @param bucketName
 	 * @param gsonBuilder
 	 */
 	public static N5Reader openS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) {
@@ -58,17 +55,14 @@ public abstract class N5AmazonS3Factory {
 	}
 
 	/**
-	 * Opens an {@link N5Writer} at a given base path with a custom
-	 * {@link GsonBuilder} to support custom attributes.
+	 * Opens an {@link N5Writer} using an {@link AmazonS3} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the base path does not exist, it will not be created and all
-	 * subsequent attempts to read or write attributes, groups, or datasets
-	 * will fail with an {@link IOException}.
+	 * If the bucket does not exist, make sure to create it by calling {@link N5Writer#createContainer()}
+	 * before attempting to read or write attributes, groups, or datasets, otherwise all such attempts will fail.
 	 *
-	 * If the base path is not writable, all subsequent attempts to write
-	 * attributes, groups, or datasets will fail with an {@link IOException}.
-	 *
-	 * @param basePath n5 base path
+	 * @param s3
+	 * @param bucketName
 	 * @param gsonBuilder
 	 */
 	public static N5Writer openS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) {
@@ -77,16 +71,12 @@ public abstract class N5AmazonS3Factory {
 	}
 
 	/**
-	 * Opens an {@link N5Reader} at a given base path.
+	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket name.
 	 *
-	 * If the base path does not exist, it will not be created and all
-	 * subsequent attempts to read or write attributes, groups, or datasets
-	 * will fail with an {@link IOException}.
+	 * If the bucket does not exist, all subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
-	 * If the base path is not writable, all subsequent attempts to write
-	 * attributes, groups, or datasets will fail with an {@link IOException}.
-	 *
-	 * @param basePath n5 base path
+	 * @param s3
+	 * @param bucketName
 	 */
 	public static N5Reader openFSReader(final AmazonS3 s3, final String bucketName) {
 
@@ -94,16 +84,13 @@ public abstract class N5AmazonS3Factory {
 	}
 
 	/**
-	 * Opens an {@link N5Writer} at a given base path.
+	 * Opens an {@link N5Writer} using an {@link AmazonS3} client and a given bucket name.
 	 *
-	 * If the base path does not exist, it will not be created and all
-	 * subsequent attempts to read or write attributes, groups, or datasets
-	 * will fail with an {@link IOException}.
+	 * If the bucket does not exist, make sure to create it by calling {@link N5Writer#createContainer()}
+	 * before attempting to read or write attributes, groups, or datasets, otherwise all such attempts will fail.
 	 *
-	 * If the base path is not writable, all subsequent attempts to write
-	 * attributes, groups, or datasets will fail with an {@link IOException}.
-	 *
-	 * @param basePath n5 base path
+	 * @param s3
+	 * @param bucketName
 	 */
 	public static N5Writer openS3Writer(final AmazonS3 s3, final String bucketName) {
 

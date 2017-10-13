@@ -15,6 +15,7 @@
 	<version>0.0.1-SNAPSHOT</version>
 
 	<properties>
+		<n5.version>1.2.1-SNAPSHOT</n5.version>
 		<enforcer.skip>true</enforcer.skip>
 	</properties>
 
@@ -33,7 +34,7 @@
 		<dependency>
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5</artifactId>
-			<version>1.2.1-SNAPSHOT</version>
+			<version>${n5.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.amazonaws</groupId>
@@ -63,7 +64,7 @@
 		<dependency>
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5</artifactId>
-			<version>1.2.1-SNAPSHOT</version>
+			<version>${n5.version}</version>
 			<type>test-jar</type>
 			<scope>test</scope>
 		</dependency>

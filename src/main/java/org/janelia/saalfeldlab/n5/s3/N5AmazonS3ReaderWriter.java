@@ -58,6 +58,10 @@ import com.google.gson.JsonElement;
 /**
  * Amazon Web Services S3-based N5 implementation.
  *
+ * Amazon S3 does not have conventional files and directories, instead it operates on objects with unique keys.
+ * This implementation requires that an empty attributes file is present for each group.
+ * It is used for determining group existence and listing groups.
+ *
  * @author Igor Pisarev
  */
 public class N5AmazonS3ReaderWriter extends AbstractN5ReaderWriter {

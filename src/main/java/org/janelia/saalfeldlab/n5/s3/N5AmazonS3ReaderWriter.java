@@ -248,7 +248,7 @@ public class N5AmazonS3ReaderWriter extends AbstractN5ReaderWriter {
 
 	private InputStream readS3Object(final String objectKey) throws IOException {
 
-		return s3.getObject(bucketName, objectKey).getObjectContent();
+		return s3.getObject(bucketName, removeFrontDelimiter(objectKey)).getObjectContent();
 	}
 
 	private void writeS3Object(

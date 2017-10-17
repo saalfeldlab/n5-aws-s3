@@ -21,6 +21,7 @@ import java.io.IOException;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.varia.NullAppender;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
+import org.janelia.saalfeldlab.n5.GsonAttributesParser;
 import org.junit.BeforeClass;
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -60,7 +61,9 @@ public class N5AmazonS3MockTest extends AbstractN5Test {
 			      .withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()))
 			      .build();
 
-		n5 = N5AmazonS3Factory.openS3Writer(s3, testBucketName);
+		n5 = N5AmazonS3.openS3Writer(s3, testBucketName);
+		n5Parser = (GsonAttributesParser)n5;
+
 		AbstractN5Test.setUpBeforeClass();
 	}
 }

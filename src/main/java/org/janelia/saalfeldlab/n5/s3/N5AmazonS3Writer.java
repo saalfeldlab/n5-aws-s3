@@ -116,9 +116,7 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
 			GsonAttributesParser.writeAttributes(new OutputStreamWriter(byteStream, StandardCharsets.UTF_8.name()), map, gson);
-
-			final String metadataKey = getAttributesPath(pathName).toString();
-			writeS3Object(removeFrontDelimiter(metadataKey), byteStream.toByteArray());
+			writeS3Object(getAttributesKey(pathName), byteStream.toByteArray());
 		}
 	}
 
@@ -130,9 +128,7 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
 			DefaultBlockWriter.writeBlock(byteStream, datasetAttributes, dataBlock);
-
-			final String dataBlockKey = getDataBlockPath(pathName, dataBlock.getGridPosition()).toString();
-			writeS3Object(removeFrontDelimiter(dataBlockKey), byteStream.toByteArray());
+			writeS3Object(getDataBlockKey(pathName, dataBlock.getGridPosition()), byteStream.toByteArray());
 		}
 	}
 
@@ -147,8 +143,8 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	@Override
 	public boolean remove(final String pathName) throws IOException {
 
-		final String correctedPathName = removeFrontDelimiter(pathName);
-		final String prefix = !correctedPathName.isEmpty() ? appendDelimiter(correctedPathName) : correctedPathName;
+		final String correctedPathName = removeFrontDelimiter(ensureCorrectDelimiter(pathName));
+		final String prefix = correctedPathName.isEmpty() ? "" : appendDelimiter(correctedPathName);
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
 				.withBucketName(bucketName)
 				.withPrefix(prefix);
@@ -177,7 +173,7 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 		objectMetadata.setContentLength(bytes.length);
 
 		try (final InputStream data = new ByteArrayInputStream(bytes)) {
-			s3.putObject(bucketName, removeFrontDelimiter(objectKey), data, objectMetadata);
+			s3.putObject(bucketName, objectKey, data, objectMetadata);
 		}
 	}
 }

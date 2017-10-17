@@ -99,18 +99,17 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 	@Override
 	public boolean exists(final String pathName) {
 
-		final String metadataKey = getAttributesPath(pathName).toString();
-		return s3.doesObjectExist(bucketName, removeFrontDelimiter(metadataKey));
+		return s3.doesObjectExist(bucketName, getAttributesKey(pathName));
 	}
 
 	@Override
 	public HashMap<String, JsonElement> getAttributes(final String pathName) throws IOException {
 
-		final String metadataKey = getAttributesPath(pathName).toString();
-		if (!s3.doesObjectExist(bucketName, removeFrontDelimiter(metadataKey)))
+		final String attributesKey = getAttributesKey(pathName);
+		if (!s3.doesObjectExist(bucketName, attributesKey))
 			return new HashMap<>();
 
-		try (final InputStream in = readS3Object(removeFrontDelimiter(metadataKey))) {
+		try (final InputStream in = readS3Object(attributesKey)) {
 			return GsonAttributesParser.readAttributes(new InputStreamReader(in, StandardCharsets.UTF_8.name()), gson);
 		}
 	}
@@ -121,11 +120,11 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 			final DatasetAttributes datasetAttributes,
 			final long[] gridPosition) throws IOException {
 
-		final String dataBlockKey = getDataBlockPath(pathName, gridPosition).toString();
-		if (!s3.doesObjectExist(bucketName, removeFrontDelimiter(dataBlockKey)))
+		final String dataBlockKey = getDataBlockKey(pathName, gridPosition);
+		if (!s3.doesObjectExist(bucketName, dataBlockKey))
 			return null;
 
-		try (final InputStream in = readS3Object(removeFrontDelimiter(dataBlockKey))) {
+		try (final InputStream in = readS3Object(dataBlockKey)) {
 			return DefaultBlockReader.readBlock(in, datasetAttributes, gridPosition);
 		}
 	}
@@ -133,8 +132,8 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 	@Override
 	public String[] list(final String pathName) throws IOException {
 
-		final String correctedPathName = removeFrontDelimiter(pathName);
-		final String prefix = !correctedPathName.isEmpty() ? appendDelimiter(correctedPathName) : correctedPathName;
+		final String correctedPathName = removeFrontDelimiter(ensureCorrectDelimiter(pathName));
+		final String prefix = correctedPathName.isEmpty() ? "" : appendDelimiter(correctedPathName);
 		final Path path = Paths.get(prefix);
 
 		final List<String> subGroups = new ArrayList<>();
@@ -148,7 +147,8 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 			for (final String commonPrefix : objectsListing.getCommonPrefixes()) {
 				if (exists(commonPrefix)) {
 					final Path relativePath = path.relativize(Paths.get(commonPrefix));
-					subGroups.add(relativePath.toString());
+					final String correctedSubgroupPathName = ensureCorrectDelimiter(relativePath.toString());
+					subGroups.add(correctedSubgroupPathName);
 				}
 			}
 			listObjectsRequest.setContinuationToken(objectsListing.getNextContinuationToken());
@@ -158,7 +158,19 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 
 	protected InputStream readS3Object(final String objectKey) throws IOException {
 
-		return s3.getObject(bucketName, removeFrontDelimiter(objectKey)).getObjectContent();
+		return s3.getObject(bucketName, objectKey).getObjectContent();
+	}
+
+	/**
+	 * AWS S3 service accepts only forward slashes as path delimiters.
+	 * This method replaces backslashes to forward slashes (if any) and returns a corrected path name.
+	 *
+	 * @param pathName
+	 * @return
+	 */
+	protected static String ensureCorrectDelimiter(final String pathName) {
+
+		return pathName.replace("\\", delimiter);
 	}
 
 	/**
@@ -200,7 +212,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 	 * @param gridPosition
 	 * @return
 	 */
-	protected static Path getDataBlockPath(
+	protected static String getDataBlockKey(
 			final String datasetPathName,
 			final long[] gridPosition) {
 
@@ -208,7 +220,8 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 		for (int i = 0; i < pathComponents.length; ++i)
 			pathComponents[i] = Long.toString(gridPosition[i]);
 
-		return Paths.get(datasetPathName, pathComponents);
+		final String dataBlockPathName = Paths.get(datasetPathName, pathComponents).toString();
+		return removeFrontDelimiter(ensureCorrectDelimiter(dataBlockPathName));
 	}
 
 	/**
@@ -217,8 +230,9 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 	 * @param pathName
 	 * @return
 	 */
-	protected static Path getAttributesPath(final String pathName) {
+	protected static String getAttributesKey(final String pathName) {
 
-		return Paths.get(pathName, jsonFile);
+		final String attributesPathName = Paths.get(pathName, jsonFile).toString();
+		return removeFrontDelimiter(ensureCorrectDelimiter(attributesPathName));
 	}
 }

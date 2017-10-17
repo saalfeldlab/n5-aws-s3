@@ -40,8 +40,6 @@ import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockReader;
 import org.janelia.saalfeldlab.n5.GsonAttributesParser;
-import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
@@ -53,7 +51,7 @@ import com.google.gson.JsonElement;
  * Amazon Web Services S3-based N5 implementation.
  *
  * Amazon S3 does not have conventional files and directories, instead it operates on objects with unique keys.
- * This implementation requires that an empty attributes file is present for each group.
+ * This implementation enforces that an empty attributes file is present for each group.
  * It is used for determining group existence and listing groups.
  *
  * @author Igor Pisarev
@@ -67,11 +65,11 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 	protected final String bucketName;
 
 	/**
-	 * Opens an {@link N5Reader}/{@link N5Writer} using an {@link AmazonS3} client and a given bucket name
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name
 	 * with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the bucket does not exist, make sure to create it by calling {@link #createContainer()}
-	 * before attempting to read or write attributes, groups, or datasets, otherwise all such attempts will fail.
+	 * If the bucket does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
 	 * @param s3
 	 * @param bucketName
@@ -85,10 +83,10 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 	}
 
 	/**
-	 * Opens an {@link N5Reader}/{@link N5Writer} using an {@link AmazonS3} client and a given bucket name.
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name.
 	 *
-	 * If the bucket does not exist, make sure to create it by calling {@link #createContainer()}
-	 * before attempting to read or write attributes, groups, or datasets, otherwise all such attempts will fail.
+	 * If the bucket does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
 	 * @param s3
 	 * @param bucketName

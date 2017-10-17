@@ -42,11 +42,11 @@ import com.google.gson.GsonBuilder;
 public class N5AmazonS3 {
 
 	/**
-	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket
-	 * name with a custom {@link GsonBuilder} to support custom attributes.
+	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the bucket does not exist, all subsequent attempts to read attributes,
-	 * groups, or datasets will fail.
+	 * If the bucket does not exist, it will not be created and all
+	 * subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
 	 * @param s3
 	 * @param bucketName
@@ -58,12 +58,10 @@ public class N5AmazonS3 {
 	}
 
 	/**
-	 * Opens an {@link N5Writer} using an {@link AmazonS3} client and a given bucket
-	 * name with a custom {@link GsonBuilder} to support custom attributes.
+	 * Opens an {@link N5Writer} using an {@link AmazonS3} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the bucket does not exist, make sure to create it by calling
-	 * {@link N5Writer#createContainer()} before attempting to read or write
-	 * attributes, groups, or datasets, otherwise all such attempts will fail.
+	 * If the bucket does not exist, it will be created.
 	 *
 	 * @param s3
 	 * @param bucketName
@@ -76,11 +74,10 @@ public class N5AmazonS3 {
 	}
 
 	/**
-	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket
-	 * name.
+	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket name.
 	 *
-	 * If the bucket does not exist, all subsequent attempts to read attributes,
-	 * groups, or datasets will fail.
+	 * If the bucket does not exist, it will not be created and all
+	 * subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
 	 * @param s3
 	 * @param bucketName
@@ -91,12 +88,9 @@ public class N5AmazonS3 {
 	}
 
 	/**
-	 * Opens an {@link N5Writer} using an {@link AmazonS3} client and a given bucket
-	 * name.
+	 * Opens an {@link N5Writer} using an {@link AmazonS3} client and a given bucket name.
 	 *
-	 * If the bucket does not exist, make sure to create it by calling
-	 * {@link N5Writer#createContainer()} before attempting to read or write
-	 * attributes, groups, or datasets, otherwise all such attempts will fail.
+	 * If the bucket does not exist, it will be created.
 	 *
 	 * @param s3
 	 * @param bucketName

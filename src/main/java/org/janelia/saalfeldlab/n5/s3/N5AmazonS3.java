@@ -25,6 +25,8 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
+import java.io.IOException;
+
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
@@ -32,18 +34,19 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.google.gson.GsonBuilder;
 
 /**
- * Factory methods to create Amazon Web Services S3-based
- * {@link N5Reader N5Readers} and {@link N5Writer N5Writers}.
+ * Factory methods to create {@link N5Reader N5Readers} and {@link N5Writer
+ * N5Writers}
  *
  * @author Igor Pisarev
  */
-public abstract class N5AmazonS3Factory {
+public class N5AmazonS3 {
 
 	/**
-	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket name
-	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket
+	 * name with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the bucket does not exist, all subsequent attempts to read attributes, groups, or datasets will fail.
+	 * If the bucket does not exist, all subsequent attempts to read attributes,
+	 * groups, or datasets will fail.
 	 *
 	 * @param s3
 	 * @param bucketName
@@ -51,49 +54,56 @@ public abstract class N5AmazonS3Factory {
 	 */
 	public static N5Reader openS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) {
 
-		return new N5AmazonS3ReaderWriter(s3, bucketName, gsonBuilder);
+		return new N5AmazonS3Reader(s3, bucketName, gsonBuilder);
 	}
 
 	/**
-	 * Opens an {@link N5Writer} using an {@link AmazonS3} client and a given bucket name
-	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 * Opens an {@link N5Writer} using an {@link AmazonS3} client and a given bucket
+	 * name with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the bucket does not exist, make sure to create it by calling {@link N5Writer#createContainer()}
-	 * before attempting to read or write attributes, groups, or datasets, otherwise all such attempts will fail.
+	 * If the bucket does not exist, make sure to create it by calling
+	 * {@link N5Writer#createContainer()} before attempting to read or write
+	 * attributes, groups, or datasets, otherwise all such attempts will fail.
 	 *
 	 * @param s3
 	 * @param bucketName
 	 * @param gsonBuilder
+	 * @throws IOException
 	 */
-	public static N5Writer openS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) {
+	public static N5Writer openS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
 
-		return new N5AmazonS3ReaderWriter(s3, bucketName, gsonBuilder);
+		return new N5AmazonS3Writer(s3, bucketName, gsonBuilder);
 	}
 
 	/**
-	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket name.
+	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket
+	 * name.
 	 *
-	 * If the bucket does not exist, all subsequent attempts to read attributes, groups, or datasets will fail.
+	 * If the bucket does not exist, all subsequent attempts to read attributes,
+	 * groups, or datasets will fail.
 	 *
 	 * @param s3
 	 * @param bucketName
 	 */
 	public static N5Reader openFSReader(final AmazonS3 s3, final String bucketName) {
 
-		return new N5AmazonS3ReaderWriter(s3, bucketName);
+		return new N5AmazonS3Reader(s3, bucketName);
 	}
 
 	/**
-	 * Opens an {@link N5Writer} using an {@link AmazonS3} client and a given bucket name.
+	 * Opens an {@link N5Writer} using an {@link AmazonS3} client and a given bucket
+	 * name.
 	 *
-	 * If the bucket does not exist, make sure to create it by calling {@link N5Writer#createContainer()}
-	 * before attempting to read or write attributes, groups, or datasets, otherwise all such attempts will fail.
+	 * If the bucket does not exist, make sure to create it by calling
+	 * {@link N5Writer#createContainer()} before attempting to read or write
+	 * attributes, groups, or datasets, otherwise all such attempts will fail.
 	 *
 	 * @param s3
 	 * @param bucketName
+	 * @throws IOException
 	 */
-	public static N5Writer openS3Writer(final AmazonS3 s3, final String bucketName) {
+	public static N5Writer openS3Writer(final AmazonS3 s3, final String bucketName) throws IOException {
 
-		return new N5AmazonS3ReaderWriter(s3, bucketName);
+		return new N5AmazonS3Writer(s3, bucketName);
 	}
 }

@@ -82,7 +82,7 @@ public class N5AmazonS3 {
 	 * @param s3
 	 * @param bucketName
 	 */
-	public static N5Reader openFSReader(final AmazonS3 s3, final String bucketName) {
+	public static N5Reader openS3Reader(final AmazonS3 s3, final String bucketName) {
 
 		return new N5AmazonS3Reader(s3, bucketName);
 	}

@@ -31,6 +31,7 @@ import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.google.gson.GsonBuilder;
 
 /**
@@ -40,6 +41,66 @@ import com.google.gson.GsonBuilder;
  * @author Igor Pisarev
  */
 public class N5AmazonS3 {
+
+	/**
+	 * Opens an {@link N5Reader} using the default {@link AmazonS3} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket does not exist, it will not be created and all
+	 * subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param gsonBuilder
+	 */
+	public static N5Reader openS3Reader(final String bucketName, final GsonBuilder gsonBuilder) {
+
+		return openS3Reader(createDefaultS3Client(), bucketName, gsonBuilder);
+	}
+
+	/**
+	 * Opens an {@link N5Writer} using the default {@link AmazonS3} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket does not exist, it will be created.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public static N5Writer openS3Writer(final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
+
+		return openS3Writer(createDefaultS3Client(), bucketName, gsonBuilder);
+	}
+
+	/**
+	 * Opens an {@link N5Reader} using the default {@link AmazonS3} client and a given bucket name.
+	 *
+	 * If the bucket does not exist, it will not be created and all
+	 * subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 */
+	public static N5Reader openS3Reader(final String bucketName) {
+
+		return openS3Reader(createDefaultS3Client(), bucketName);
+	}
+
+	/**
+	 * Opens an {@link N5Writer} using the default {@link AmazonS3} client and a given bucket name.
+	 *
+	 * If the bucket does not exist, it will be created.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @throws IOException
+	 */
+	public static N5Writer openS3Writer(final String bucketName) throws IOException {
+
+		return openS3Writer(createDefaultS3Client(), bucketName);
+	}
 
 	/**
 	 * Opens an {@link N5Reader} using an {@link AmazonS3} client and a given bucket name
@@ -99,5 +160,10 @@ public class N5AmazonS3 {
 	public static N5Writer openS3Writer(final AmazonS3 s3, final String bucketName) throws IOException {
 
 		return new N5AmazonS3Writer(s3, bucketName);
+	}
+
+	private static AmazonS3 createDefaultS3Client()
+	{
+		return AmazonS3ClientBuilder.defaultClient();
 	}
 }

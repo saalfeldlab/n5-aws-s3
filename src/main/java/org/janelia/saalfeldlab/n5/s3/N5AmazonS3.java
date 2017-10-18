@@ -35,8 +35,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.google.gson.GsonBuilder;
 
 /**
- * Factory methods to create {@link N5Reader N5Readers} and {@link N5Writer
- * N5Writers}
+ * Factory methods to create {@link N5Reader N5Readers} and {@link N5Writer N5Writers}.
  *
  * @author Igor Pisarev
  */
@@ -49,7 +48,6 @@ public class N5AmazonS3 {
 	 * If the bucket does not exist, it will not be created and all
 	 * subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
-	 * @param s3
 	 * @param bucketName
 	 * @param gsonBuilder
 	 */
@@ -64,7 +62,6 @@ public class N5AmazonS3 {
 	 *
 	 * If the bucket does not exist, it will be created.
 	 *
-	 * @param s3
 	 * @param bucketName
 	 * @param gsonBuilder
 	 * @throws IOException
@@ -80,7 +77,6 @@ public class N5AmazonS3 {
 	 * If the bucket does not exist, it will not be created and all
 	 * subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
-	 * @param s3
 	 * @param bucketName
 	 */
 	public static N5Reader openS3Reader(final String bucketName) {
@@ -93,7 +89,6 @@ public class N5AmazonS3 {
 	 *
 	 * If the bucket does not exist, it will be created.
 	 *
-	 * @param s3
 	 * @param bucketName
 	 * @throws IOException
 	 */

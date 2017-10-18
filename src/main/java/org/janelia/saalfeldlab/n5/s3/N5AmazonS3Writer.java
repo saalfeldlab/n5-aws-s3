@@ -30,7 +30,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -115,7 +114,7 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 		GsonAttributesParser.insertAttributes(map, attributes, gson);
 
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
-			GsonAttributesParser.writeAttributes(new OutputStreamWriter(byteStream, StandardCharsets.UTF_8.name()), map, gson);
+			GsonAttributesParser.writeAttributes(new OutputStreamWriter(byteStream), map, gson);
 			writeS3Object(getAttributesKey(pathName), byteStream.toByteArray());
 		}
 	}

@@ -28,7 +28,6 @@ package org.janelia.saalfeldlab.n5.s3;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -110,7 +109,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader {
 			return new HashMap<>();
 
 		try (final InputStream in = readS3Object(attributesKey)) {
-			return GsonAttributesParser.readAttributes(new InputStreamReader(in, StandardCharsets.UTF_8.name()), gson);
+			return GsonAttributesParser.readAttributes(new InputStreamReader(in), gson);
 		}
 	}
 

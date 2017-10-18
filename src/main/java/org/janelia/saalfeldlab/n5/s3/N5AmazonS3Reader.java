@@ -55,7 +55,7 @@ import com.google.gson.JsonElement;
  *
  * @author Igor Pisarev
  */
-public class N5AmazonS3Reader extends AbstractGsonReader {
+class N5AmazonS3Reader extends AbstractGsonReader {
 
 	protected static final String jsonFile = "attributes.json";
 	protected static final String delimiter = "/";

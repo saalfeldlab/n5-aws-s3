@@ -62,7 +62,7 @@ import com.google.gson.JsonElement;
  *
  * @author Igor Pisarev
  */
-public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
+class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 
 	/**
 	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client and a given bucket name

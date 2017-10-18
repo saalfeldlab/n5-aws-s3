@@ -39,7 +39,7 @@ import com.google.gson.GsonBuilder;
  *
  * @author Igor Pisarev
  */
-public class N5AmazonS3 {
+public interface N5AmazonS3 {
 
 	/**
 	 * Opens an {@link N5Reader} using the default {@link AmazonS3} client and a given bucket name
@@ -53,7 +53,7 @@ public class N5AmazonS3 {
 	 */
 	public static N5Reader openS3Reader(final String bucketName, final GsonBuilder gsonBuilder) {
 
-		return openS3Reader(createDefaultS3Client(), bucketName, gsonBuilder);
+		return openS3Reader(AmazonS3ClientBuilder.defaultClient(), bucketName, gsonBuilder);
 	}
 
 	/**
@@ -68,7 +68,7 @@ public class N5AmazonS3 {
 	 */
 	public static N5Writer openS3Writer(final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
 
-		return openS3Writer(createDefaultS3Client(), bucketName, gsonBuilder);
+		return openS3Writer(AmazonS3ClientBuilder.defaultClient(), bucketName, gsonBuilder);
 	}
 
 	/**
@@ -81,7 +81,7 @@ public class N5AmazonS3 {
 	 */
 	public static N5Reader openS3Reader(final String bucketName) {
 
-		return openS3Reader(createDefaultS3Client(), bucketName);
+		return openS3Reader(AmazonS3ClientBuilder.defaultClient(), bucketName);
 	}
 
 	/**
@@ -94,7 +94,7 @@ public class N5AmazonS3 {
 	 */
 	public static N5Writer openS3Writer(final String bucketName) throws IOException {
 
-		return openS3Writer(createDefaultS3Client(), bucketName);
+		return openS3Writer(AmazonS3ClientBuilder.defaultClient(), bucketName);
 	}
 
 	/**
@@ -155,10 +155,5 @@ public class N5AmazonS3 {
 	public static N5Writer openS3Writer(final AmazonS3 s3, final String bucketName) throws IOException {
 
 		return new N5AmazonS3Writer(s3, bucketName);
-	}
-
-	private static AmazonS3 createDefaultS3Client()
-	{
-		return AmazonS3ClientBuilder.defaultClient();
 	}
 }

@@ -82,18 +82,6 @@ class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 		createGroup("");
 	}
 
-	/**
-	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client and a given bucket name.
-	 *
-	 * @param s3
-	 * @param bucketName
-	 * @throws IOException
-	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName) throws IOException {
-
-		this(s3, bucketName, new GsonBuilder());
-	}
-
 	@Override
 	public void createGroup(final String pathName) throws IOException {
 

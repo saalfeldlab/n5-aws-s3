@@ -81,20 +81,6 @@ class N5AmazonS3Reader extends AbstractGsonReader {
 		this.bucketName = bucketName;
 	}
 
-	/**
-	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name.
-	 *
-	 * If the bucket does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
-	 *
-	 * @param s3
-	 * @param bucketName
-	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName) {
-
-		this(s3, bucketName, new GsonBuilder());
-	}
-
 	@Override
 	public boolean exists(final String pathName) {
 

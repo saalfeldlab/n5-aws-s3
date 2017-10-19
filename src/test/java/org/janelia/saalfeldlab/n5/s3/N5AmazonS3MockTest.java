@@ -27,7 +27,6 @@ import org.junit.BeforeClass;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
-import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 
 import io.findify.s3mock.S3Mock;
@@ -54,14 +53,13 @@ public class N5AmazonS3MockTest extends AbstractN5Test {
 
 		final EndpointConfiguration endpoint = new EndpointConfiguration("http://localhost:8001", "us-west-2");
 
-		final AmazonS3 s3 = AmazonS3ClientBuilder
+		final AmazonS3ClientBuilder s3Builder = AmazonS3ClientBuilder
 			      .standard()
 			      .withPathStyleAccessEnabled(true)
 			      .withEndpointConfiguration(endpoint)
-			      .withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()))
-			      .build();
+			      .withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()));
 
-		n5 = N5AmazonS3.openS3Writer(s3, testBucketName);
+		n5 = N5AmazonS3.openS3Writer(s3Builder, testBucketName);
 		n5Parser = (GsonAttributesParser)n5;
 
 		AbstractN5Test.setUpBeforeClass();

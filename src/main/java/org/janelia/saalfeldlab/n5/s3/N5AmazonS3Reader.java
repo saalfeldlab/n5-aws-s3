@@ -43,6 +43,7 @@ import org.janelia.saalfeldlab.n5.GsonAttributesParser;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 
@@ -62,6 +63,44 @@ class N5AmazonS3Reader extends AbstractGsonReader {
 
 	protected final AmazonS3 s3;
 	protected final String bucketName;
+
+	/**
+	 * Helper class that drains the rest of the {@link S3ObjectInputStream} on {@link #close()}.
+	 *
+	 * Without draining the stream AWS S3 SDK sometimes outputs the following warning message:
+	 * "... Not all bytes were read from the S3ObjectInputStream, aborting HTTP connection ...".
+	 *
+	 * Draining the stream helps to avoid this warning and possibly reuse HTTP connections.
+	 *
+	 * Calling {@link S3ObjectInputStream#abort()} does not prevent this warning as discussed here:
+	 * https://github.com/aws/aws-sdk-java/issues/1211
+	 */
+	private static class S3ObjectInputStreamDrain extends InputStream {
+
+		private final S3ObjectInputStream in;
+		private boolean closed;
+
+		public S3ObjectInputStreamDrain(final S3ObjectInputStream in) {
+
+			this.in = in;
+		}
+
+		@Override
+		public int read() throws IOException {
+
+			return in.read();
+		}
+
+		@Override
+		public void close() throws IOException {
+
+			if (!closed) {
+				while (read() != -1);
+				in.close();
+				closed = true;
+			}
+		}
+	}
 
 	/**
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name
@@ -143,7 +182,8 @@ class N5AmazonS3Reader extends AbstractGsonReader {
 
 	protected InputStream readS3Object(final String objectKey) throws IOException {
 
-		return s3.getObject(bucketName, objectKey).getObjectContent();
+		final S3ObjectInputStream in = s3.getObject(bucketName, objectKey).getObjectContent();
+		return new S3ObjectInputStreamDrain(in);
 	}
 
 	/**

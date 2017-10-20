@@ -18,8 +18,6 @@ package org.janelia.saalfeldlab.n5.s3;
 
 import java.io.IOException;
 
-import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.varia.NullAppender;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.GsonAttributesParser;
 import org.junit.BeforeClass;
@@ -45,8 +43,6 @@ public class N5AmazonS3MockTest extends AbstractN5Test {
 	 */
 	@BeforeClass
 	public static void setUpBeforeClass() throws IOException {
-
-		BasicConfigurator.configure(NullAppender.getNullAppender());
 
 		final S3Mock api = new S3Mock.Builder().withPort(8001).withInMemoryBackend().build();
 		api.start();

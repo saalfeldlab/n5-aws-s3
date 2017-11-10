@@ -72,7 +72,7 @@ public interface N5AmazonS3 {
 	 *
 	 * If the bucket does not exist, it will be created.
 	 *
-	 * @param s3Builder
+	 * @param s3
 	 * @param bucketName
 	 * @throws IOException
 	 */
@@ -87,7 +87,7 @@ public interface N5AmazonS3 {
 	 * If the bucket does not exist, it will not be created and all
 	 * subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
-	 * @param s3Builder
+	 * @param s3
 	 * @param bucketName
 	 */
 	public static N5Reader openS3Reader(final AmazonS3 s3, final String bucketName) {
@@ -132,7 +132,7 @@ public interface N5AmazonS3 {
 	 * If the bucket does not exist, it will not be created and all
 	 * subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
-	 * @param s3Builder
+	 * @param s3
 	 * @param bucketName
 	 * @param gsonBuilder
 	 */
@@ -147,7 +147,7 @@ public interface N5AmazonS3 {
 	 *
 	 * If the bucket does not exist, it will be created.
 	 *
-	 * @param s3Builder
+	 * @param s3
 	 * @param bucketName
 	 * @param gsonBuilder
 	 * @throws IOException

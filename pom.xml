@@ -16,6 +16,7 @@
 
 	<properties>
 		<n5.version>1.2.1-SNAPSHOT</n5.version>
+		<aws-sdk.version>1.11.228</aws-sdk.version>
 		<enforcer.skip>true</enforcer.skip>
 	</properties>
 
@@ -39,7 +40,7 @@
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-s3</artifactId>
-			<version>1.11.217</version>
+			<version>${aws-sdk.version}</version>
 		</dependency>
 
 		<!-- Test dependencies -->

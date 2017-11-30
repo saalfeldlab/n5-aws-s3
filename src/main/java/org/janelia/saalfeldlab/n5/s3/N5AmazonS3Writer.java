@@ -73,12 +73,11 @@ class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	 * @param gsonBuilder
 	 * @throws IOException
 	 */
-	@SuppressWarnings("deprecation")
 	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
 
 		super(s3, bucketName, gsonBuilder);
 
-		if (!s3.doesBucketExist(bucketName))
+		if (!s3.doesBucketExistV2(bucketName))
 			s3.createBucket(bucketName);
 		createGroup("");
 	}
@@ -121,12 +120,11 @@ class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	}
 
 	@Override
-	@SuppressWarnings("deprecation")
 	public boolean remove() throws IOException {
 
 		remove("");
 		s3.deleteBucket(bucketName);
-		return !s3.doesBucketExist(bucketName);
+		return !s3.doesBucketExistV2(bucketName);
 	}
 
 	@Override

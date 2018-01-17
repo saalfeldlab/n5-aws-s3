@@ -54,7 +54,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 
 /**
- * Amazon Web Services S3-based N5 implementation.
+ * Amazon Web Services S3-based N5 implementation with version compatibility check.
  *
  * Amazon S3 does not have conventional files and directories, instead it operates on objects with unique keys.
  * This implementation enforces that an empty attributes file is present for each group.
@@ -62,7 +62,7 @@ import com.google.gson.JsonElement;
  *
  * @author Igor Pisarev
  */
-class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
+public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 
 	/**
 	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client and a given bucket name
@@ -79,7 +79,20 @@ class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 
 		if (!s3.doesBucketExistV2(bucketName))
 			s3.createBucket(bucketName);
-		createGroup("");
+
+		setAttribute("/", VERSION_KEY, VERSION.toString());
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client and a given bucket name.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @throws IOException
+	 */
+	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName) throws IOException {
+
+		this(s3, bucketName, new GsonBuilder());
 	}
 
 	@Override

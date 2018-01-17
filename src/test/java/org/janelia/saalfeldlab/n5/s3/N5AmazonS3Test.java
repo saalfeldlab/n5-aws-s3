@@ -20,8 +20,9 @@ import java.io.IOException;
 import java.util.UUID;
 
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
-import org.junit.BeforeClass;
+import org.janelia.saalfeldlab.n5.N5Writer;
+
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 
 /**
  * Initiates testing of the Amazon Web Services S3-based N5 implementation.
@@ -35,17 +36,14 @@ import org.junit.BeforeClass;
  */
 public class N5AmazonS3Test extends AbstractN5Test {
 
-	static private String testBucketName = "test-bucket-" + UUID.randomUUID();
+	static private String testBucketName = "n5-test-" + UUID.randomUUID();
 
 	/**
 	 * @throws IOException
 	 */
-	@BeforeClass
-	public static void setUpBeforeClass() throws IOException {
+	@Override
+	protected N5Writer createN5Writer() throws IOException {
 
-		n5 = N5AmazonS3.openS3Writer(testBucketName);
-		n5Parser = (GsonAttributesParser)n5;
-
-		AbstractN5Test.setUpBeforeClass();
+		return new N5AmazonS3Writer(AmazonS3ClientBuilder.standard().build(), testBucketName);
 	}
 }

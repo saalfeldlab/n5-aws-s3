@@ -39,6 +39,7 @@ import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockReader;
 import org.janelia.saalfeldlab.n5.GsonAttributesParser;
+import org.janelia.saalfeldlab.n5.N5Reader;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
@@ -48,7 +49,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 
 /**
- * Amazon Web Services S3-based N5 implementation.
+ * Amazon Web Services S3-based N5 implementation with version compatibility check.
  *
  * Amazon S3 does not have conventional files and directories, instead it operates on objects with unique keys.
  * This implementation enforces that an empty attributes file is present for each group.
@@ -56,7 +57,7 @@ import com.google.gson.JsonElement;
  *
  * @author Igor Pisarev
  */
-class N5AmazonS3Reader extends AbstractGsonReader {
+public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 
 	protected static final String jsonFile = "attributes.json";
 	protected static final String delimiter = "/";
@@ -112,12 +113,35 @@ class N5AmazonS3Reader extends AbstractGsonReader {
 	 * @param s3
 	 * @param bucketName
 	 * @param gsonBuilder
+	 * @throws IOException
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
 
 		super(gsonBuilder);
+
 		this.s3 = s3;
 		this.bucketName = bucketName;
+
+		if (exists("/")) {
+			final Version version = getVersion();
+			if (!VERSION.isCompatible(version))
+				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
+		}
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name.
+	 *
+	 * If the bucket does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName) throws IOException {
+
+		this(s3, bucketName, new GsonBuilder());
 	}
 
 	@Override

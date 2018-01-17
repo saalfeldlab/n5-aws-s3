@@ -88,7 +88,6 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	 *
 	 * @param s3
 	 * @param bucketName
-	 * @param gsonBuilder
 	 * @throws IOException
 	 */
 	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName) throws IOException {

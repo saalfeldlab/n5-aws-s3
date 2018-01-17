@@ -19,8 +19,7 @@ package org.janelia.saalfeldlab.n5.s3;
 import java.io.IOException;
 
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
-import org.junit.BeforeClass;
+import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
@@ -42,8 +41,8 @@ public class N5AmazonS3MockTest extends AbstractN5Test {
 	/**
 	 * @throws IOException
 	 */
-	@BeforeClass
-	public static void setUpBeforeClass() throws IOException {
+	@Override
+	protected N5Writer createN5Writer() throws IOException {
 
 		final S3Mock api = new S3Mock.Builder().withPort(8001).withInMemoryBackend().build();
 		api.start();
@@ -57,9 +56,6 @@ public class N5AmazonS3MockTest extends AbstractN5Test {
 			      .withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()))
 			      .build();
 
-		n5 = N5AmazonS3.openS3Writer(s3, testBucketName);
-		n5Parser = (GsonAttributesParser)n5;
-
-		AbstractN5Test.setUpBeforeClass();
+		return new N5AmazonS3Writer(s3, testBucketName);
 	}
 }

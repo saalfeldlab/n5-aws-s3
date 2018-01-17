@@ -48,7 +48,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 
 /**
- * Amazon Web Services S3-based N5 implementation.
+ * Amazon Web Services S3-based N5 implementation with version compatibility check.
  *
  * Amazon S3 does not have conventional files and directories, instead it operates on objects with unique keys.
  * This implementation enforces that an empty attributes file is present for each group.
@@ -56,7 +56,7 @@ import com.google.gson.JsonElement;
  *
  * @author Igor Pisarev
  */
-class N5AmazonS3Reader extends AbstractGsonReader {
+public class N5AmazonS3Reader extends AbstractGsonReader {
 
 	protected static final String jsonFile = "attributes.json";
 	protected static final String delimiter = "/";
@@ -112,12 +112,20 @@ class N5AmazonS3Reader extends AbstractGsonReader {
 	 * @param s3
 	 * @param bucketName
 	 * @param gsonBuilder
+	 * @throws IOException
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
 
 		super(gsonBuilder);
+
 		this.s3 = s3;
 		this.bucketName = bucketName;
+
+		if (exists("/")) {
+			final Version version = getVersion();
+			if (!VERSION.isCompatible(version))
+				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
+		}
 	}
 
 	@Override

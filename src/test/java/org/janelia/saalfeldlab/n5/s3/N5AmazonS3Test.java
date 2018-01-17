@@ -36,7 +36,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
  */
 public class N5AmazonS3Test extends AbstractN5Test {
 
-	static private String testBucketName = "test-bucket-" + UUID.randomUUID();
+	static private String testBucketName = "n5-test-" + UUID.randomUUID();
 
 	/**
 	 * @throws IOException

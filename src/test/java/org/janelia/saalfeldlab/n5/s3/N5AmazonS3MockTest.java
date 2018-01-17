@@ -36,7 +36,7 @@ import io.findify.s3mock.S3Mock;
  */
 public class N5AmazonS3MockTest extends AbstractN5Test {
 
-	static private String testBucketName = "test-bucket";
+	static private String testBucketName = "n5-test";
 
 	/**
 	 * @throws IOException

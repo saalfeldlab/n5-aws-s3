@@ -80,7 +80,8 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 		if (!s3.doesBucketExistV2(bucketName))
 			s3.createBucket(bucketName);
 
-		setAttribute("/", VERSION_KEY, VERSION.toString());
+		if (!VERSION.equals(getVersion()))
+			setAttribute("/", VERSION_KEY, VERSION.toString());
 	}
 
 	/**

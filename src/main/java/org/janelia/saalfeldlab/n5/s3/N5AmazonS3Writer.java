@@ -144,8 +144,8 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	@Override
 	public boolean remove(final String pathName) throws IOException {
 
-		final String correctedPathName = removeFrontDelimiter(ensureCorrectDelimiter(pathName));
-		final String prefix = correctedPathName.isEmpty() ? "" : appendDelimiter(correctedPathName);
+		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
+		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
 				.withBucketName(bucketName)
 				.withPrefix(prefix);

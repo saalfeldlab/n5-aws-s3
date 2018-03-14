@@ -99,7 +99,7 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	@Override
 	public void createGroup(final String pathName) throws IOException {
 
-		final Path path = Paths.get(pathName);
+		final Path path = Paths.get(removeLeadingSlash(pathName));
 		for (int i = 0; i < path.getNameCount(); ++i) {
 			final String subgroup = path.subpath(0, i + 1).toString();
 			if (!exists(subgroup))
@@ -136,7 +136,7 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	@Override
 	public boolean remove() throws IOException {
 
-		remove("");
+		remove("/");
 		s3.deleteBucket(bucketName);
 		return !s3.doesBucketExistV2(bucketName);
 	}

@@ -225,6 +225,9 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * When absolute paths are passed (e.g. /group/data), AWS S3 service creates an additional root folder with an empty name.
 	 * This method removes the root slash symbol and returns the corrected path.
 	 *
+	 * Additionally, it ensures correctness on both Unix and Windows platforms, otherwise {@code pathName} is treated
+	 * as UNC path on Windows, and {@code Paths.get(pathName, ...)} fails with {@code InvalidPathException}.
+	 *
 	 * @param pathName
 	 * @return
 	 */
@@ -268,8 +271,8 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 		for (int i = 0; i < pathComponents.length; ++i)
 			pathComponents[i] = Long.toString(gridPosition[i]);
 
-		final String dataBlockPathName = Paths.get(datasetPathName, pathComponents).toString();
-		return removeLeadingSlash(replaceBackSlashes(dataBlockPathName));
+		final String dataBlockPathName = Paths.get(removeLeadingSlash(datasetPathName), pathComponents).toString();
+		return replaceBackSlashes(dataBlockPathName);
 	}
 
 	/**
@@ -280,7 +283,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 */
 	protected static String getAttributesKey(final String pathName) {
 
-		final String attributesPathName = Paths.get(pathName, jsonFile).toString();
-		return removeLeadingSlash(replaceBackSlashes(attributesPathName));
+		final String attributesPathName = Paths.get(removeLeadingSlash(pathName), jsonFile).toString();
+		return replaceBackSlashes(attributesPathName);
 	}
 }

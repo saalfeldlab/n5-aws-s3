@@ -1,5 +1,9 @@
-# n5-aws-s3
+# N5 AWS S3
 N5 library implementation using Amazon Web Services S3 backend.
+
+### Implementation specifics
+* N5 containers are represented by buckets.
+* An `attributes.json` with an empty map is always created for any group. It is used to reliably check group existence as S3 does not have conventional directories.
 
 ### Authentication
 

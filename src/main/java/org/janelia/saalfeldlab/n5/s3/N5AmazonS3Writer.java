@@ -33,7 +33,6 @@ import java.io.OutputStreamWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,10 +54,6 @@ import com.google.gson.JsonElement;
 
 /**
  * Amazon Web Services S3-based N5 implementation with version compatibility check.
- *
- * Amazon S3 does not have conventional files and directories, instead it operates on objects with unique keys.
- * This implementation enforces that an empty attributes file is present for each group.
- * It is used for determining group existence and listing groups.
  *
  * @author Igor Pisarev
  */
@@ -102,8 +97,14 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 		final Path path = Paths.get(removeLeadingSlash(pathName));
 		for (int i = 0; i < path.getNameCount(); ++i) {
 			final String subgroup = path.subpath(0, i + 1).toString();
-			if (!exists(subgroup))
-				setAttributes(subgroup, Collections.emptyMap());
+			final ObjectMetadata metadata = new ObjectMetadata();
+			metadata.setContentLength(0);
+			s3.putObject(
+					bucketName,
+					replaceBackSlashes(addTrailingSlash(removeLeadingSlash(subgroup))),
+					new ByteArrayInputStream(new byte[0]),
+					metadata
+				);
 		}
 	}
 

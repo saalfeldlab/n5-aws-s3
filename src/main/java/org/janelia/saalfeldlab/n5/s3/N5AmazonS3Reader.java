@@ -51,10 +51,6 @@ import com.google.gson.JsonElement;
 /**
  * Amazon Web Services S3-based N5 implementation with version compatibility check.
  *
- * Amazon S3 does not have conventional files and directories, instead it operates on objects with unique keys.
- * This implementation enforces that an empty attributes file is present for each group.
- * It is used for determining group existence and listing groups.
- *
  * @author Igor Pisarev
  */
 public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
@@ -146,7 +142,20 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	@Override
 	public boolean exists(final String pathName) {
 
-		return s3.doesObjectExist(bucketName, getAttributesKey(pathName));
+		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
+		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
+		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
+				.withBucketName(bucketName)
+				.withPrefix(prefix)
+				.withMaxKeys(1);
+		final ListObjectsV2Result objectsListing = s3.listObjectsV2(listObjectsRequest);
+		return objectsListing.getKeyCount() > 0;
+	}
+
+	@Override
+	public boolean datasetExists(final String pathName) throws IOException {
+
+		return getDatasetAttributes(pathName) != null;
 	}
 
 	@Override
@@ -192,10 +201,11 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 		do {
 			objectsListing = s3.listObjectsV2(listObjectsRequest);
 			for (final String commonPrefix : objectsListing.getCommonPrefixes()) {
-				if (exists(commonPrefix)) {
+				if (commonPrefix.endsWith("/")) {
 					final Path relativePath = path.relativize(Paths.get(commonPrefix));
 					final String correctedSubgroupPathName = replaceBackSlashes(relativePath.toString());
-					subGroups.add(correctedSubgroupPathName);
+					if (!correctedSubgroupPathName.isEmpty())
+						subGroups.add(correctedSubgroupPathName);
 				}
 			}
 			listObjectsRequest.setContinuationToken(objectsListing.getNextContinuationToken());

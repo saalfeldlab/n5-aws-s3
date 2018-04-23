@@ -19,7 +19,6 @@ package org.janelia.saalfeldlab.n5.s3;
 import java.io.IOException;
 import java.util.UUID;
 
-import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
@@ -34,7 +33,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
-public class N5AmazonS3Test extends AbstractN5Test {
+public class N5AmazonS3Test extends AbstractN5AmazonS3Test {
 
 	static private String testBucketName = "n5-test-" + UUID.randomUUID();
 

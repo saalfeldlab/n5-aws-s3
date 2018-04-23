@@ -18,7 +18,6 @@ package org.janelia.saalfeldlab.n5.s3;
 
 import java.io.IOException;
 
-import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -34,7 +33,7 @@ import io.findify.s3mock.S3Mock;
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
-public class N5AmazonS3MockTest extends AbstractN5Test {
+public class N5AmazonS3MockTest extends AbstractN5AmazonS3Test {
 
 	static private String testBucketName = "n5-test";
 

@@ -153,6 +153,12 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	}
 
 	@Override
+	public boolean datasetExists(final String pathName) throws IOException {
+
+		return getDatasetAttributes(pathName) != null;
+	}
+
+	@Override
 	public HashMap<String, JsonElement> getAttributes(final String pathName) throws IOException {
 
 		final String attributesKey = getAttributesKey(pathName);

@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava-base</artifactId>
-		<version>3.5.1</version>
+		<version>5.2.0</version>
 		<relativePath />
 	</parent>
 
@@ -16,7 +16,6 @@
 
 	<properties>
 		<n5.version>2.0.2</n5.version>
-		<enforcer.skip>true</enforcer.skip>
 	</properties>
 
 	<repositories>
@@ -39,7 +38,7 @@
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-s3</artifactId>
-			<version>1.11.319</version>
+			<version>1.11.534</version>
 		</dependency>
 
 		<!-- Test dependencies -->
@@ -79,14 +78,6 @@
 	<build>
 		<pluginManagement>
 			<plugins>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-compiler-plugin</artifactId>
-					<configuration>
-						<source>1.8</source>
-						<target>1.8</target>
-					</configuration>
-				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-deploy-plugin</artifactId>

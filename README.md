@@ -1,4 +1,4 @@
-# N5 AWS S3
+# N5 AWS S3 [![Build Status](https://travis-ci.org/saalfeldlab/n5-aws-s3.svg?branch=master)](https://travis-ci.org/saalfeldlab/n5-aws-s3)
 N5 library implementation using Amazon Web Services S3 backend.
 
 ### Implementation specifics

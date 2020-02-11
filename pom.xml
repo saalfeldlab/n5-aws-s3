@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>25.0.0</version>
+		<version>27.0.1</version>
 		<relativePath />
 	</parent>
 
@@ -106,7 +106,7 @@
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-s3</artifactId>
-			<version>1.11.534</version>
+			<version>1.11.719</version>
 		</dependency>
 
 		<!-- Test dependencies -->

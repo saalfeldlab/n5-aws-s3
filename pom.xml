@@ -54,7 +54,7 @@
 	</ciManagement>
 
 	<properties>
-		<n5.version>2.1.4-SNAPSHOT</n5.version>
+		<n5.version>2.1.4</n5.version>
 
 		<package-name>org.janelia.saalfeldlab</package-name>
 		<license.licenseName>bsd_2</license.licenseName>

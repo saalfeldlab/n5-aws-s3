@@ -14,35 +14,30 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-package org.janelia.saalfeldlab.n5.s3;
-
-import java.io.IOException;
-import java.util.UUID;
+package org.janelia.saalfeldlab.n5.s3.backend;
 
 import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3BucketRootTest;
 
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import java.io.IOException;
 
 /**
- * Initiates testing of the Amazon Web Services S3-based N5 implementation.
- *
- * Expects that security credentials (access key ID and secret key) are provided in one of the following sources:
- * - environment variables
- * - system (JVM) variables
- * - credentials profile file
+ * Initiates testing of the Amazon Web Services S3-based N5 implementation using actual S3 backend.
+ * The test N5 container is created at the root of the new temporary bucket.
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
-public class N5AmazonS3Test extends AbstractN5AmazonS3Test {
+public class N5AmazonS3BucketRootBackendTest extends AbstractN5AmazonS3BucketRootTest {
 
-	static private String testBucketName = "n5-test-" + UUID.randomUUID();
+    public N5AmazonS3BucketRootBackendTest() {
 
-	/**
-	 * @throws IOException
-	 */
-	@Override
-	protected N5Writer createN5Writer() throws IOException {
+        super(BackendS3Factory.getOrCreateS3());
+    }
 
-		return new N5AmazonS3Writer(AmazonS3ClientBuilder.standard().build(), testBucketName);
-	}
+    @Override
+    protected N5Writer createN5Writer() throws IOException {
+
+        N5AmazonS3DelayedWriter.sleep();
+        return new N5AmazonS3DelayedWriter(s3, testBucketName);
+    }
 }

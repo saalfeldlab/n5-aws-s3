@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import com.amazonaws.services.s3.AmazonS3URI;
 import org.janelia.saalfeldlab.n5.AbstractGsonReader;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
@@ -59,6 +60,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 
 	protected final AmazonS3 s3;
 	protected final String bucketName;
+	protected final String containerPath;
 
 	/**
 	 * Helper class that drains the rest of the {@link S3ObjectInputStream} on {@link #close()}.
@@ -99,32 +101,6 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	}
 
 	/**
-	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name
-	 * with a custom {@link GsonBuilder} to support custom attributes.
-	 *
-	 * If the bucket does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
-	 *
-	 * @param s3
-	 * @param bucketName
-	 * @param gsonBuilder
-	 * @throws IOException
-	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
-
-		super(gsonBuilder);
-
-		this.s3 = s3;
-		this.bucketName = bucketName;
-
-		if (s3.doesBucketExistV2(bucketName)) {
-			final Version version = getVersion();
-			if (!VERSION.isCompatible(version))
-				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
-		}
-	}
-
-	/**
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name.
 	 *
 	 * If the bucket does not exist, it will not be created and
@@ -139,23 +115,115 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 		this(s3, bucketName, new GsonBuilder());
 	}
 
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client, a given bucket name,
+	 * and a path to the container within the bucket.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param containerPath
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String containerPath) throws IOException {
+
+		this(s3, bucketName, containerPath, new GsonBuilder());
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given S3 URI.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param containerURI
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(final AmazonS3 s3, final AmazonS3URI containerURI) throws IOException {
+
+		this(s3, containerURI, new GsonBuilder());
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given S3 URI
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param containerURI
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(final AmazonS3 s3, final AmazonS3URI containerURI, final GsonBuilder gsonBuilder) throws IOException {
+
+		this(s3, containerURI.getBucket(), containerURI.getKey(), gsonBuilder);
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
+
+		this(s3, bucketName, "/", gsonBuilder);
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client, a given bucket name,
+	 * and a path to the container within the bucket with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param containerPath
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(
+			final AmazonS3 s3,
+			final String bucketName,
+			final String containerPath,
+			final GsonBuilder gsonBuilder) throws IOException {
+
+		super(gsonBuilder);
+
+		this.s3 = s3;
+		this.bucketName = bucketName;
+		this.containerPath = containerPath;
+
+		if (s3.doesBucketExistV2(bucketName) && (isContainerBucketRoot() || exists("/"))) {
+			final Version version = getVersion();
+			if (!VERSION.isCompatible(version))
+				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
+		}
+	}
+
 	@Override
 	public boolean exists(final String pathName) {
 
-		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
-		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
+		final String fullPath = getFullPath(pathName);
+		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
 				.withBucketName(bucketName)
 				.withPrefix(prefix)
 				.withMaxKeys(1);
 		final ListObjectsV2Result objectsListing = s3.listObjectsV2(listObjectsRequest);
 		return objectsListing.getKeyCount() > 0;
-	}
-
-	@Override
-	public boolean datasetExists(final String pathName) throws IOException {
-
-		return getDatasetAttributes(pathName) != null;
 	}
 
 	@Override
@@ -188,8 +256,8 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	@Override
 	public String[] list(final String pathName) throws IOException {
 
-		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
-		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
+		final String fullPath = getFullPath(pathName);
+		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
 		final Path path = Paths.get(prefix);
 
 		final List<String> subGroups = new ArrayList<>();
@@ -273,7 +341,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * @param gridPosition
 	 * @return
 	 */
-	protected static String getDataBlockKey(
+	protected String getDataBlockKey(
 			final String datasetPathName,
 			final long[] gridPosition) {
 
@@ -282,7 +350,19 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 			pathComponents[i] = Long.toString(gridPosition[i]);
 
 		final String dataBlockPathName = Paths.get(removeLeadingSlash(datasetPathName), pathComponents).toString();
-		return replaceBackSlashes(dataBlockPathName);
+		return getFullPath(dataBlockPathName);
+	}
+
+	/**
+	 * Constructs a full path for a path that is relative to the container.
+	 *
+	 * @param relativePath
+	 * @return
+	 */
+	protected String getFullPath(final String relativePath) {
+
+		final String fullPath = Paths.get(removeLeadingSlash(containerPath), relativePath).toString();
+		return removeLeadingSlash(replaceBackSlashes(fullPath));
 	}
 
 	/**
@@ -291,9 +371,18 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * @param pathName
 	 * @return
 	 */
-	protected static String getAttributesKey(final String pathName) {
+	protected String getAttributesKey(final String pathName) {
 
-		final String attributesPathName = Paths.get(removeLeadingSlash(pathName), jsonFile).toString();
-		return replaceBackSlashes(attributesPathName);
+		final String attributesPath = Paths.get(removeLeadingSlash(pathName), jsonFile).toString();
+		return getFullPath(attributesPath);
+	}
+
+	/**
+	 * Determines whether the current N5 container is stored at the root level of the bucket.
+	 *
+	 * @return
+	 */
+	protected boolean isContainerBucketRoot() {
+		return removeLeadingSlash(containerPath).isEmpty();
 	}
 }

@@ -6,13 +6,13 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>25.0.0</version>
+		<version>27.0.1</version>
 		<relativePath />
 	</parent>
 
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>n5-aws-s3</artifactId>
-	<version>2.1.1-SNAPSHOT</version>
+	<version>3.0.0-SNAPSHOT</version>
 	<name>N5 AWS S3</name>
 	<description>N5 library implementation using Amazon Web Services S3 backend.</description>
 
@@ -54,7 +54,7 @@
 	</ciManagement>
 
 	<properties>
-		<n5.version>2.0.2</n5.version>
+		<n5.version>2.1.4</n5.version>
 
 		<package-name>org.janelia.saalfeldlab</package-name>
 		<license.licenseName>bsd_2</license.licenseName>
@@ -106,7 +106,7 @@
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-s3</artifactId>
-			<version>1.11.534</version>
+			<version>1.11.719</version>
 		</dependency>
 
 		<!-- Test dependencies -->
@@ -151,7 +151,8 @@
 					<artifactId>maven-surefire-plugin</artifactId>
 					<configuration>
 						<excludes>
-							<exclude>org.janelia.saalfeldlab.n5.s3.N5AmazonS3Test</exclude>
+							<exclude>org.janelia.saalfeldlab.n5.s3.backend.N5AmazonS3BucketRootBackendTest</exclude>
+							<exclude>org.janelia.saalfeldlab.n5.s3.backend.N5AmazonS3ContainerPathBackendTest</exclude>
 						</excludes>
 					</configuration>
 				</plugin>

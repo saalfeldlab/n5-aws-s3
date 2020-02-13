@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.amazonaws.services.s3.AmazonS3URI;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockWriter;
@@ -60,26 +61,6 @@ import com.google.gson.JsonElement;
 public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 
 	/**
-	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client and a given bucket name
-	 * with a custom {@link GsonBuilder} to support custom attributes.
-	 *
-	 * @param s3
-	 * @param bucketName
-	 * @param gsonBuilder
-	 * @throws IOException
-	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
-
-		super(s3, bucketName, gsonBuilder);
-
-		if (!s3.doesBucketExistV2(bucketName))
-			s3.createBucket(bucketName);
-
-		if (!VERSION.equals(getVersion()))
-			setAttribute("/", VERSION_KEY, VERSION.toString());
-	}
-
-	/**
 	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client and a given bucket name.
 	 *
 	 * @param s3
@@ -91,10 +72,92 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 		this(s3, bucketName, new GsonBuilder());
 	}
 
+	/**
+	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client, a given bucket name,
+	 * and a path to the container within the bucket.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param containerPath
+	 * @throws IOException
+	 */
+	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String containerPath) throws IOException {
+
+		this(s3, bucketName, containerPath, new GsonBuilder());
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client and a given S3 URI.
+	 *
+	 * @param s3
+	 * @param containerURI
+	 * @throws IOException
+	 */
+	public N5AmazonS3Writer(final AmazonS3 s3, final AmazonS3URI containerURI) throws IOException {
+
+		this(s3, containerURI, new GsonBuilder());
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client and a given S3 URI
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * @param s3
+	 * @param containerURI
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5AmazonS3Writer(final AmazonS3 s3, final AmazonS3URI containerURI, final GsonBuilder gsonBuilder) throws IOException {
+
+		this(s3, containerURI.getBucket(), containerURI.getKey(), gsonBuilder);
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
+
+		this(s3, bucketName, "/", gsonBuilder);
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client, a given bucket name,
+	 * and a path to the container within the bucket with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param containerPath
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5AmazonS3Writer(
+			final AmazonS3 s3,
+			final String bucketName,
+			final String containerPath,
+			final GsonBuilder gsonBuilder) throws IOException {
+
+		super(s3, bucketName, containerPath, gsonBuilder);
+
+		if (!s3.doesBucketExistV2(bucketName))
+			s3.createBucket(bucketName);
+
+		if (!isContainerBucketRoot() && !exists("/"))
+			createGroup("/");
+
+		if (!VERSION.equals(getVersion()))
+			setAttribute("/", VERSION_KEY, VERSION.toString());
+	}
+
 	@Override
 	public void createGroup(final String pathName) throws IOException {
 
-		final Path path = Paths.get(removeLeadingSlash(pathName));
+		final Path path = Paths.get(getFullPath(pathName));
 		for (int i = 0; i < path.getNameCount(); ++i) {
 			final String subgroup = path.subpath(0, i + 1).toString();
 			final ObjectMetadata metadata = new ObjectMetadata();
@@ -103,8 +166,7 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 					bucketName,
 					replaceBackSlashes(addTrailingSlash(removeLeadingSlash(subgroup))),
 					new ByteArrayInputStream(new byte[0]),
-					metadata
-				);
+					metadata);
 		}
 	}
 
@@ -137,7 +199,11 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	@Override
 	public boolean remove() throws IOException {
 
-		remove("/");
+		final boolean wasPathRemoved = remove("/");
+		if (!isContainerBucketRoot() || !wasPathRemoved)
+			return wasPathRemoved;
+
+		// N5 container was at the root level of the bucket so the bucket needs to be removed as well
 		s3.deleteBucket(bucketName);
 		return !s3.doesBucketExistV2(bucketName);
 	}
@@ -145,8 +211,8 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	@Override
 	public boolean remove(final String pathName) throws IOException {
 
-		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
-		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
+		final String fullPath = getFullPath(pathName);
+		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
 				.withBucketName(bucketName)
 				.withPrefix(prefix);
@@ -159,8 +225,7 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 
 			if (!objectsToDelete.isEmpty()) {
 				s3.deleteObjects(new DeleteObjectsRequest(bucketName)
-						.withKeys(objectsToDelete.toArray(new String[objectsToDelete.size()]))
-					);
+						.withKeys(objectsToDelete.toArray(new String[objectsToDelete.size()])));
 			}
 			listObjectsRequest.setContinuationToken(objectsListing.getNextContinuationToken());
 		} while (objectsListing.isTruncated());

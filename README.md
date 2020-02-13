@@ -5,7 +5,7 @@ N5 containers can be represented by either an S3 bucket, or a directory tree ins
 
 ### Authentication
 
-This [test](https://github.com/saalfeldlab/n5-aws-s3/blob/master/src/test/java/org/janelia/saalfeldlab/n5/s3/N5AmazonS3Test.java) shows how to create an S3 client. It is excluded from the default test configuration and requires a few steps to set up:
+Access to non-public buckets requires a few steps to set up the security credentials:
 
 1. Create access keys in the [AWS console](https://console.aws.amazon.com/iam/home?#/security_credential).
 1. Configure them on your machine using the credentials profile:

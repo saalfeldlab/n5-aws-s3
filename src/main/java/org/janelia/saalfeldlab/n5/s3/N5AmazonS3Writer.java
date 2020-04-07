@@ -197,6 +197,15 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	}
 
 	@Override
+	public boolean deleteBlock(String pathName, long[] gridPosition) {
+
+		final String dataBlockKey = getDataBlockKey(pathName, gridPosition);
+		if (s3.doesObjectExist(bucketName, dataBlockKey))
+			s3.deleteObject(bucketName, dataBlockKey);
+		return !s3.doesObjectExist(bucketName, dataBlockKey);
+	}
+
+	@Override
 	public boolean remove() throws IOException {
 
 		final boolean wasPathRemoved = remove("/");

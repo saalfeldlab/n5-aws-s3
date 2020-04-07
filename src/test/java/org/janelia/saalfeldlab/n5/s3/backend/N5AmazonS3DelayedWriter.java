@@ -81,6 +81,14 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
         return ret;
     }
 
+    @Override
+    public boolean deleteBlock(String pathName, long[] gridPosition) {
+
+        final boolean ret = super.deleteBlock(pathName, gridPosition);
+        sleep();
+        return ret;
+    }
+
     static void sleep() {
 
         try {

@@ -66,6 +66,14 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
     }
 
     @Override
+    public boolean deleteBlock(final String pathName, final long[] gridPosition) {
+
+        final boolean ret = super.deleteBlock(pathName, gridPosition);
+        sleep();
+        return ret;
+    }
+
+    @Override
     public boolean remove() throws IOException {
 
         final boolean ret = super.remove();
@@ -77,14 +85,6 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
     public boolean remove(final String pathName) throws IOException {
 
         final boolean ret = super.remove(pathName);
-        sleep();
-        return ret;
-    }
-
-    @Override
-    public boolean deleteBlock(String pathName, long[] gridPosition) {
-
-        final boolean ret = super.deleteBlock(pathName, gridPosition);
         sleep();
         return ret;
     }

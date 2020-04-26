@@ -157,14 +157,15 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	@Override
 	public void createGroup(final String pathName) throws IOException {
 
-		final Path path = Paths.get(getFullPath(pathName));
-		for (int i = 0; i < path.getNameCount(); ++i) {
-			final String subgroup = path.subpath(0, i + 1).toString();
+		final Path groupPath = Paths.get(removeLeadingSlash(pathName));
+		for (int i = 0; i < groupPath.getNameCount(); ++i) {
+			final String parentGroupPath = groupPath.subpath(0, i + 1).toString();
+			final String fullParentGroupPath = getFullPath(parentGroupPath);
 			final ObjectMetadata metadata = new ObjectMetadata();
 			metadata.setContentLength(0);
 			s3.putObject(
 					bucketName,
-					replaceBackSlashes(addTrailingSlash(removeLeadingSlash(subgroup))),
+					replaceBackSlashes(addTrailingSlash(removeLeadingSlash(fullParentGroupPath))),
 					new ByteArrayInputStream(new byte[0]),
 					metadata);
 		}

@@ -43,7 +43,7 @@ public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5Amaz
 
         rampDownAfterClass();
         Assert.assertTrue(s3.doesBucketExistV2(testBucketName));
-        Assert.assertTrue(s3.doesObjectExist(testBucketName, "test/"));
+        Assert.assertFalse(s3.doesObjectExist(testBucketName, "test/"));
         new N5AmazonS3Writer(s3, testBucketName).remove();
         Assert.assertFalse(s3.doesBucketExistV2(testBucketName));
     }

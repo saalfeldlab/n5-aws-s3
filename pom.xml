@@ -73,8 +73,6 @@
 	</ciManagement>
 
 	<properties>
-		<n5.version>2.2.0</n5.version>
-
 		<package-name>org.janelia.saalfeldlab</package-name>
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.projectName>N5 AWS S3</license.projectName>
@@ -83,6 +81,11 @@
 
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>deploy-to-scijava</releaseProfiles>
+
+		<n5.version>2.2.0</n5.version>
+		<aws-java-sdk-s3.version>1.11.719</aws-java-sdk-s3.version>
+		<s3mock_2.12.version>0.2.5</s3mock_2.12.version>
+		<slf4j-log4j12.version>1.7.25</slf4j-log4j12.version>
 	</properties>
 
 	<dependencies>
@@ -94,7 +97,7 @@
 		<dependency>
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-s3</artifactId>
-			<version>1.11.719</version>
+			<version>${aws-java-sdk-s3.version}</version>
 		</dependency>
 
 		<!-- Test dependencies -->
@@ -106,20 +109,20 @@
 		<dependency>
 			<groupId>io.findify</groupId>
 			<artifactId>s3mock_2.12</artifactId>
-			<version>0.2.5</version>
+			<version>${s3mock_2.12.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-log4j12</artifactId>
-			<version>1.7.25</version>
+			<version>${slf4j-log4j12.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5</artifactId>
 			<version>${n5.version}</version>
-			<type>test-jar</type>
+			<classifier>tests</classifier>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

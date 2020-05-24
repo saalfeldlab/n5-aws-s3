@@ -73,7 +73,7 @@
 	</ciManagement>
 
 	<properties>
-		<package-name>org.janelia.saalfeldlab</package-name>
+		<package-name>org.janelia.saalfeldlab.n5.s3</package-name>
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.projectName>N5 AWS S3</license.projectName>
 		<license.organizationName>Saalfeld Lab</license.organizationName>

@@ -18,3 +18,17 @@ dependency-reduced-pom.xml
 hs_err_pid*
 /target/
 /bin/
+
+# MacOs
+.DS_Store
+
+# IntelliJ
+.idea
+.classpath
+.project
+.settings
+.factorypath
+.idea
+target
+*.iml
+

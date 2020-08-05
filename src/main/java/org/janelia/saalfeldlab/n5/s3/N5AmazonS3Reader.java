@@ -206,7 +206,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 		this.bucketName = bucketName;
 		this.containerPath = containerPath;
 
-		if (s3.doesBucketExistV2(bucketName) && (isContainerBucketRoot() || exists("/"))) {
+		if (s3.doesBucketExistV2(bucketName)) {
 			final Version version = getVersion();
 			if (!VERSION.isCompatible(version))
 				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");

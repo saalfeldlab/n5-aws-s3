@@ -84,6 +84,7 @@
 
 		<s3mock_2.12.version>0.2.5</s3mock_2.12.version>
 		<slf4j-log4j12.version>1.7.25</slf4j-log4j12.version>
+		<n5.version>2.3.0</n5.version>
 	</properties>
 
 	<dependencies>

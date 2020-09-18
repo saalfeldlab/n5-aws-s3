@@ -34,7 +34,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import com.amazonaws.services.s3.AmazonS3URI;
 import org.janelia.saalfeldlab.n5.AbstractGsonReader;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
@@ -43,6 +42,7 @@ import org.janelia.saalfeldlab.n5.GsonAttributesParser;
 import org.janelia.saalfeldlab.n5.N5Reader;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -242,7 +242,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	public DataBlock<?> readBlock(
 			final String pathName,
 			final DatasetAttributes datasetAttributes,
-			final long[] gridPosition) throws IOException {
+			final long... gridPosition) throws IOException {
 
 		final String dataBlockKey = getDataBlockKey(pathName, gridPosition);
 		if (!s3.doesObjectExist(bucketName, dataBlockKey))
@@ -343,7 +343,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 */
 	protected String getDataBlockKey(
 			final String datasetPathName,
-			final long[] gridPosition) {
+			final long... gridPosition) {
 
 		final String[] pathComponents = new String[gridPosition.length];
 		for (int i = 0; i < pathComponents.length; ++i)

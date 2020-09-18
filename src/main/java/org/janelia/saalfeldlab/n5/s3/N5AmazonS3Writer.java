@@ -37,7 +37,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.amazonaws.services.s3.AmazonS3URI;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockWriter;
@@ -45,6 +44,7 @@ import org.janelia.saalfeldlab.n5.GsonAttributesParser;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
@@ -198,7 +198,7 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 	}
 
 	@Override
-	public boolean deleteBlock(final String pathName, final long[] gridPosition) {
+	public boolean deleteBlock(final String pathName, final long... gridPosition) {
 
 		final String dataBlockKey = getDataBlockKey(pathName, gridPosition);
 		if (s3.doesObjectExist(bucketName, dataBlockKey))

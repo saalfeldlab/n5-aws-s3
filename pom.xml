@@ -11,7 +11,7 @@
 
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>n5-aws-s3</artifactId>
-	<version>3.1.4-SNAPSHOT</version>
+	<version>3.2.0</version>
 
 	<name>N5 AWS S3</name>
 	<description>N5 library implementation using Amazon Web Services S3 backend.</description>
@@ -60,7 +60,7 @@
 	<scm>
 		<connection>scm:git:git://github.com/saalfeldlab/n5-aws-s3</connection>
 		<developerConnection>scm:git:git@github.com:saalfeldlab/n5-aws-s3</developerConnection>
-		<tag>HEAD</tag>
+		<tag>n5-aws-s3-3.2.0</tag>
 		<url>https://github.com/saalfeldlab/n5-aws-s3</url>
 	</scm>
 	<issueManagement>

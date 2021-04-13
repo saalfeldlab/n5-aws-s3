@@ -112,9 +112,25 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 */
 	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName) throws IOException {
 
-		this(s3, bucketName, new GsonBuilder());
+		this(s3, bucketName, new GsonBuilder(), true );
 	}
 
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name.
+	 *
+	 * If the bucket does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param cacheAttributes
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final boolean cacheAttributes ) throws IOException {
+
+		this(s3, bucketName, new GsonBuilder(), cacheAttributes );
+	}
+	
 	/**
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client, a given bucket name,
 	 * and a path to the container within the bucket.
@@ -127,9 +143,27 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * @param containerPath
 	 * @throws IOException
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String containerPath) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String containerPath ) throws IOException {
 
-		this(s3, bucketName, containerPath, new GsonBuilder());
+		this(s3, bucketName, containerPath, new GsonBuilder(), false );
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client, a given bucket name,
+	 * and a path to the container within the bucket.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param containerPath
+	 * @param cacheAttributes
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String containerPath, final boolean cacheAttributes ) throws IOException {
+
+		this(s3, bucketName, containerPath, new GsonBuilder(), cacheAttributes );
 	}
 
 	/**
@@ -144,7 +178,23 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 */
 	public N5AmazonS3Reader(final AmazonS3 s3, final AmazonS3URI containerURI) throws IOException {
 
-		this(s3, containerURI, new GsonBuilder());
+		this(s3, containerURI, new GsonBuilder(), false );
+	}
+	
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given S3 URI.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param containerURI
+	 * @param cacheAttributes
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(final AmazonS3 s3, final AmazonS3URI containerURI, final boolean cacheAttributes ) throws IOException {
+
+		this(s3, containerURI, new GsonBuilder(), cacheAttributes );
 	}
 
 	/**
@@ -159,9 +209,28 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * @param gsonBuilder
 	 * @throws IOException
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final AmazonS3URI containerURI, final GsonBuilder gsonBuilder) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final AmazonS3URI containerURI, final GsonBuilder gsonBuilder ) throws IOException {
 
-		this(s3, containerURI.getBucket(), containerURI.getKey(), gsonBuilder);
+		this(s3, containerURI.getBucket(), containerURI.getKey(), gsonBuilder, false );
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given S3 URI
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param containerURI
+	 * @param gsonBuilder
+	 * @param cacheAttributes
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(final AmazonS3 s3, final AmazonS3URI containerURI, final GsonBuilder gsonBuilder,
+			final boolean cacheAttributes ) throws IOException {
+
+		this(s3, containerURI.getBucket(), containerURI.getKey(), gsonBuilder, cacheAttributes );
 	}
 
 	/**
@@ -176,9 +245,51 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * @param gsonBuilder
 	 * @throws IOException
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder ) throws IOException {
 
-		this(s3, bucketName, "/", gsonBuilder);
+		this(s3, bucketName, "/", gsonBuilder, false );
+	}
+
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param gsonBuilder
+	 * @param cacheAttributes
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder, 
+			final boolean cacheAttributes ) throws IOException {
+
+		this(s3, bucketName, "/", gsonBuilder, cacheAttributes );
+	}
+	
+
+	/**
+	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client, a given bucket name,
+	 * and a path to the container within the bucket with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * @param bucketName
+	 * @param containerPath
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5AmazonS3Reader(
+			final AmazonS3 s3,
+			final String bucketName,
+			final String containerPath,
+			final GsonBuilder gsonBuilder ) throws IOException {
+
+		this( s3, bucketName, containerPath, gsonBuilder, false);
 	}
 
 	/**
@@ -198,9 +309,10 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 			final AmazonS3 s3,
 			final String bucketName,
 			final String containerPath,
-			final GsonBuilder gsonBuilder) throws IOException {
+			final GsonBuilder gsonBuilder,
+			final boolean cacheAttributes ) throws IOException {
 
-		super(gsonBuilder);
+		super(gsonBuilder, cacheAttributes );
 
 		this.s3 = s3;
 		this.bucketName = bucketName;
@@ -212,7 +324,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
 		}
 	}
-
+	
 	@Override
 	public boolean exists(final String pathName) {
 

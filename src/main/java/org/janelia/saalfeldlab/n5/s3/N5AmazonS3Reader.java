@@ -34,15 +34,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import com.amazonaws.services.s3.AmazonS3URI;
-import org.janelia.saalfeldlab.n5.AbstractGsonReader;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockReader;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
-import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5KeyValueReader;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -54,7 +52,7 @@ import com.google.gson.JsonElement;
  *
  * @author Igor Pisarev
  */
-public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
+public class N5AmazonS3Reader extends N5KeyValueReader {
 
 	protected static final String jsonFile = "attributes.json";
 
@@ -130,7 +128,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 
 		this(s3, bucketName, new GsonBuilder(), cacheAttributes );
 	}
-	
+
 	/**
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client, a given bucket name,
 	 * and a path to the container within the bucket.
@@ -180,7 +178,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 
 		this(s3, containerURI, new GsonBuilder(), false );
 	}
-	
+
 	/**
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given S3 URI.
 	 *
@@ -263,12 +261,12 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * @param cacheAttributes
 	 * @throws IOException
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder, 
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder,
 			final boolean cacheAttributes ) throws IOException {
 
 		this(s3, bucketName, "/", gsonBuilder, cacheAttributes );
 	}
-	
+
 
 	/**
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client, a given bucket name,
@@ -310,9 +308,9 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 			final String bucketName,
 			final String containerPath,
 			final GsonBuilder gsonBuilder,
-			final boolean cacheAttributes ) throws IOException {
+			final boolean cacheAttributes) throws IOException {
 
-		super(gsonBuilder, cacheAttributes );
+		super(null, gsonBuilder, cacheAttributes);
 
 		this.s3 = s3;
 		this.bucketName = bucketName;
@@ -324,7 +322,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
 		}
 	}
-	
+
 	@Override
 	public boolean exists(final String pathName) {
 
@@ -346,7 +344,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 			return new HashMap<>();
 
 		try (final InputStream in = readS3Object(attributesKey)) {
-			return GsonAttributesParser.readAttributes(new InputStreamReader(in), gson);
+			return readAttributes(new InputStreamReader(in));
 		}
 	}
 
@@ -354,7 +352,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	public DataBlock<?> readBlock(
 			final String pathName,
 			final DatasetAttributes datasetAttributes,
-			final long[] gridPosition) throws IOException {
+			final long... gridPosition) throws IOException {
 
 		final String dataBlockKey = getDataBlockKey(pathName, gridPosition);
 		if (!s3.doesObjectExist(bucketName, dataBlockKey))

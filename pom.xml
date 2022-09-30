@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>29.2.1</version>
+		<version>32.0.0</version>
 		<relativePath />
 	</parent>
 
@@ -68,8 +68,8 @@
 		<url>https://github.com/saalfeldlab/n5-aws-s3/issues</url>
 	</issueManagement>
 	<ciManagement>
-		<system>Travis CI</system>
-		<url>https://travis-ci.org/saalfeldlab/n5-aws-s3</url>
+		<system>GitHub Actions</system>
+		<url>https://github.com/saalfeldlab/n5-aws-s3/actions</url>
 	</ciManagement>
 
 	<properties>
@@ -80,18 +80,9 @@
 		<license.copyrightOwners>Igor Pisarev, Stephan Saalfeld</license.copyrightOwners>
 
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
-		<releaseProfiles>deploy-to-scijava</releaseProfiles>
+		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
-		<!-- TODO remove when pom-scijava-base is updated -->
-		<scijava.jvm.version>8</scijava.jvm.version>
-		<scijava.jvm.build.version>[1.8.0-101,)</scijava.jvm.build.version>
-
-		<maven-enforcer-plugin.version>3.0.0-M3</maven-enforcer-plugin.version>
-		<jacoco-maven-plugin.version>0.8.6</jacoco-maven-plugin.version>
-
-		<n5.version>2.4.0</n5.version>
 		<s3mock_2.12.version>0.2.5</s3mock_2.12.version>
-		<slf4j-log4j12.version>1.7.25</slf4j-log4j12.version>
 		<jaxb-api.version>2.2.2</jaxb-api.version>
 	</properties>
 
@@ -119,8 +110,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-log4j12</artifactId>
-			<version>${slf4j-log4j12.version}</version>
+			<artifactId>slf4j-simple</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

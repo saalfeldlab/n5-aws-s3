@@ -2,17 +2,17 @@
  * #%L
  * N5 AWS S3
  * %%
- * Copyright (C) 2017 - 2022 Igor Pisarev, Stephan Saalfeld
+ * Copyright (C) 2017 - 2022, Saalfeld Lab
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -28,16 +28,16 @@
  */
 package org.janelia.saalfeldlab.n5.s3.backend;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.google.gson.GsonBuilder;
+import java.io.IOException;
+import java.util.Map;
+
+import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.s3.N5AmazonS3Writer;
 
-import org.janelia.saalfeldlab.n5.AbstractN5Test;
-
-import java.io.IOException;
-import java.util.Map;
+import com.amazonaws.services.s3.AmazonS3;
+import com.google.gson.GsonBuilder;
 
 /**
  * Helper class for dealing with eventual consistency of S3 store.
@@ -121,7 +121,7 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
 
         try {
             Thread.sleep(delayMsec);
-        } catch (InterruptedException e) {
+        } catch (final InterruptedException e) {
             e.printStackTrace();
         }
     }

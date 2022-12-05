@@ -44,6 +44,7 @@ import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockWriter;
 import org.janelia.saalfeldlab.n5.GsonAttributesParser;
+import org.janelia.saalfeldlab.n5.N5URL;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.amazonaws.services.s3.AmazonS3;
@@ -171,6 +172,20 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 					replaceBackSlashes(addTrailingSlash(removeLeadingSlash(fullParentGroupPath))),
 					new ByteArrayInputStream(new byte[0]),
 					metadata);
+		}
+	}
+
+	@Override public <T> void setAttribute(String pathName, String key, T attribute) throws IOException {
+
+
+		final HashMap<String, JsonElement> map = getAttributes(pathName);
+
+
+		JsonElement attributesRoot = getAttributesJson(pathName);
+		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
+			final String attributePath = N5URL.normalizeAttributePath(key);
+			GsonAttributesParser.writeAttribute(new OutputStreamWriter(byteStream), attributesRoot, attributePath, attribute, getGson());
+			writeS3Object(getAttributesKey(pathName), byteStream.toByteArray());
 		}
 	}
 

@@ -84,6 +84,7 @@
 
 		<s3mock_2.12.version>0.2.5</s3mock_2.12.version>
 		<jaxb-api.version>2.2.2</jaxb-api.version>
+		<n5.version>2.5.2-SNAPSHOT</n5.version>
 	</properties>
 
 	<dependencies>

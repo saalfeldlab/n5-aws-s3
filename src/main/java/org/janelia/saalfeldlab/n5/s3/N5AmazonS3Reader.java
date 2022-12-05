@@ -241,6 +241,17 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 		}
 	}
 
+	@Override public JsonElement getAttributesJson(String pathName) throws IOException {
+
+		final String attributesKey = getAttributesKey(pathName);
+		if (!s3.doesObjectExist(bucketName, attributesKey))
+			return null;
+
+		try (final InputStream in = readS3Object(attributesKey)) {
+			return GsonAttributesParser.readAttributesJson(new InputStreamReader(in), gson);
+		}
+	}
+
 	@Override
 	public DataBlock<?> readBlock(
 			final String pathName,

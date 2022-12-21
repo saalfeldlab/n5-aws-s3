@@ -49,6 +49,11 @@ public abstract class AbstractN5AmazonS3BucketRootTest extends AbstractN5AmazonS
         return new N5AmazonS3Writer(s3, testBucketName);
     }
 
+    @Override protected N5Writer createN5Writer(String location) throws IOException {
+
+        return new N5AmazonS3Writer(s3, location.substring(location.lastIndexOf('/') + 1 ));
+    }
+
     @AfterClass
     public static void cleanup() throws IOException {
 

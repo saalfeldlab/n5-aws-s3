@@ -51,6 +51,11 @@ public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5Amaz
         return new N5AmazonS3Writer(s3, testBucketName, testContainerPath);
     }
 
+    @Override protected N5Writer createN5Writer(String location) throws IOException {
+
+        return new N5AmazonS3Writer(s3, testBucketName, location);
+    }
+
     @AfterClass
     public static void cleanup() throws IOException {
 

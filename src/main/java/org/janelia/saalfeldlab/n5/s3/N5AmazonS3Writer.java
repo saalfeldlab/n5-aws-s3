@@ -36,16 +36,14 @@ import java.io.OutputStreamWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockWriter;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
+import org.janelia.saalfeldlab.n5.GsonN5Writer;
 import org.janelia.saalfeldlab.n5.N5URL;
-import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3URI;
@@ -62,7 +60,7 @@ import com.google.gson.JsonElement;
  *
  * @author Igor Pisarev
  */
-public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
+public class N5AmazonS3Writer extends N5AmazonS3Reader implements GsonN5Writer {
 
 	/**
 	 * Opens an {@link N5AmazonS3Writer} using an {@link AmazonS3} client and a given bucket name.
@@ -146,25 +144,36 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 			final String containerPath,
 			final GsonBuilder gsonBuilder) throws IOException {
 
-		super(s3, bucketName, containerPath, gsonBuilder);
-
-		if (!s3.doesBucketExistV2(bucketName))
-			s3.createBucket(bucketName);
-
-		if (!isContainerBucketRoot() && !exists("/"))
-			createGroup("/");
+		super(s3, getOrCreateBucketAndContainerPath(s3, bucketName, containerPath), containerPath, gsonBuilder);
 
 		if (!VERSION.equals(getVersion()))
 			setAttribute("/", VERSION_KEY, VERSION.toString());
 	}
 
+	private static String getOrCreateBucketAndContainerPath(AmazonS3 s3, String bucketName, String containerPath) {
+
+		if (!s3.doesBucketExistV2(bucketName))
+			s3.createBucket(bucketName);
+
+		final String rootPath = "/";
+		if (!exists(s3, bucketName, containerPath, rootPath))
+			createGroup(s3, bucketName, containerPath, rootPath);
+
+		return bucketName;
+	}
+
 	@Override
-	public void createGroup(final String pathName) throws IOException {
+	public void createGroup(final String pathName) throws IOException{
+
+		createGroup(s3, bucketName, containerPath, pathName);
+	}
+
+	private static void createGroup(final AmazonS3 s3, final String bucketName, final String containerPath, final String pathName) {
 
 		final Path groupPath = Paths.get(removeLeadingSlash(pathName));
 		for (int i = 0; i < groupPath.getNameCount(); ++i) {
 			final String parentGroupPath = groupPath.subpath(0, i + 1).toString();
-			final String fullParentGroupPath = getFullPath(parentGroupPath);
+			final String fullParentGroupPath = getFullPath(containerPath, parentGroupPath);
 			final ObjectMetadata metadata = new ObjectMetadata();
 			metadata.setContentLength(0);
 			s3.putObject(
@@ -177,14 +186,10 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 
 	@Override public <T> void setAttribute(String pathName, String key, T attribute) throws IOException {
 
-
-		final HashMap<String, JsonElement> map = getAttributes(pathName);
-
-
-		JsonElement attributesRoot = getAttributesJson(pathName);
+		JsonElement attributesRoot = getAttributes(pathName);
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
 			final String attributePath = N5URL.normalizeAttributePath(key);
-			GsonAttributesParser.writeAttribute(new OutputStreamWriter(byteStream), attributesRoot, attributePath, attribute, getGson());
+			GsonN5Writer.writeAttribute(new OutputStreamWriter(byteStream), attributesRoot, attributePath, attribute, getGson());
 			writeS3Object(getAttributesKey(pathName), byteStream.toByteArray());
 		}
 	}
@@ -194,12 +199,53 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements N5Writer {
 			final String pathName,
 			final Map<String, ?> attributes) throws IOException {
 
-		final HashMap<String, JsonElement> map = getAttributes(pathName);
-		GsonAttributesParser.insertAttributes(map, attributes, gson);
+		JsonElement root = getAttributes(pathName);
+		root = GsonN5Writer.insertAttributes(root, attributes, gson);
 
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
-			GsonAttributesParser.writeAttributes(new OutputStreamWriter(byteStream), map, gson);
+			GsonN5Writer.writeAttributes(new OutputStreamWriter(byteStream), root, gson);
 			writeS3Object(getAttributesKey(pathName), byteStream.toByteArray());
+		}
+	}
+
+	@Override public boolean removeAttribute(String pathName, String key) throws IOException {
+
+		final JsonElement root = getAttributes(pathName);
+		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
+			final boolean removed = GsonN5Writer.removeAttribute(new OutputStreamWriter(byteStream), root, N5URL.normalizeAttributePath(key), gson);
+			if (removed) {
+				writeS3Object(getAttributesKey(pathName), byteStream.toByteArray());
+			}
+			return removed;
+		}
+	}
+
+	@Override public <T> T removeAttribute(String pathName, String key, Class<T> cls) throws IOException {
+
+		final JsonElement root = getAttributes(pathName);
+		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
+			final T removed = GsonN5Writer.removeAttribute(new OutputStreamWriter(byteStream), root, N5URL.normalizeAttributePath(key), cls, gson);
+			if (removed != null) {
+				writeS3Object(getAttributesKey(pathName), byteStream.toByteArray());
+			}
+			return removed;
+		}
+	}
+
+	@Override public boolean removeAttributes(String pathName, List<String> attributes) throws IOException {
+
+		final JsonElement root = getAttributes(pathName);
+		boolean removed = false;
+		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
+			final OutputStreamWriter writer = new OutputStreamWriter(byteStream);
+			for (final String attribute : attributes) {
+				removed |= GsonN5Writer.removeAttribute(root, N5URL.normalizeAttributePath(attribute), JsonElement.class, gson) != null;
+			}
+			if (removed) {
+				GsonN5Writer.writeAttributes(writer, root, gson);
+				writeS3Object(getAttributesKey(pathName), byteStream.toByteArray());
+			}
+			return removed;
 		}
 	}
 

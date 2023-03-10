@@ -34,15 +34,14 @@ import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import org.janelia.saalfeldlab.n5.AbstractGsonReader;
+import com.google.gson.Gson;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockReader;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
-import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.GsonN5Reader;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3URI;
@@ -57,13 +56,15 @@ import com.google.gson.JsonElement;
  *
  * @author Igor Pisarev
  */
-public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
+public class N5AmazonS3Reader implements GsonN5Reader {
 
 	protected static final String jsonFile = "attributes.json";
 
 	protected final AmazonS3 s3;
 	protected final String bucketName;
 	protected final String containerPath;
+
+	protected final Gson gson;
 
 	/**
 	 * Helper class that drains the rest of the {@link S3ObjectInputStream} on {@link #close()}.
@@ -106,8 +107,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	/**
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name.
 	 *
-	 * If the bucket does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 * If the bucket does not exist, it will not be created and an IOException will be thrown.
 	 *
 	 * @param s3
 	 * @param bucketName
@@ -122,8 +122,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client, a given bucket name,
 	 * and a path to the container within the bucket.
 	 *
-	 * If the bucket and/or container does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 * If the bucket and/or container does not exist, it will not be created and an IOExcpetion will be thrown.
 	 *
 	 * @param s3
 	 * @param bucketName
@@ -138,8 +137,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	/**
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given S3 URI.
 	 *
-	 * If the bucket and/or container does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 * If the bucket and/or container does not exist, it will not be created and an IOExcpetion will be thrown.
 	 *
 	 * @param s3
 	 * @param containerURI
@@ -154,8 +152,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given S3 URI
 	 * with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the bucket and/or container does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 * If the bucket and/or container does not exist, it will not be created and an IOExcpetion will be thrown.
 	 *
 	 * @param s3
 	 * @param containerURI
@@ -171,8 +168,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client and a given bucket name
 	 * with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the bucket does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 * If the bucket does not exist, it will not be created and an IOExcpetion will be thrown.
 	 *
 	 * @param s3
 	 * @param bucketName
@@ -188,8 +184,7 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * Opens an {@link N5AmazonS3Reader} using an {@link AmazonS3} client, a given bucket name,
 	 * and a path to the container within the bucket with a custom {@link GsonBuilder} to support custom attributes.
 	 *
-	 * If the bucket and/or container does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 * If the bucket and/or container does not exist, it will not be created and an IOExcpetion will be thrown.
 	 *
 	 * @param s3
 	 * @param bucketName
@@ -203,23 +198,34 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 			final String containerPath,
 			final GsonBuilder gsonBuilder) throws IOException {
 
-		super(gsonBuilder);
-
+		this.gson = GsonN5Reader.registerGson(gsonBuilder);
 		this.s3 = s3;
 		this.bucketName = bucketName;
 		this.containerPath = containerPath;
 
-		if (s3.doesBucketExistV2(bucketName)) {
+		if (s3.doesBucketExistV2(bucketName) && exists("/")) {
 			final Version version = getVersion();
 			if (!VERSION.isCompatible(version))
 				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
+		} else {
+			throw new IOException("AWS bucket for N5Reader does not exist: " + bucketName);
 		}
+	}
+
+	@Override public Gson getGson() {
+
+		return this.gson;
 	}
 
 	@Override
 	public boolean exists(final String pathName) {
 
-		final String fullPath = getFullPath(pathName);
+		return exists(s3, bucketName, containerPath, pathName);
+	}
+
+	protected static boolean exists(final AmazonS3 s3, final String bucketName, final String containerPath, final String pathName) {
+
+		final String fullPath = getFullPath(containerPath, pathName);
 		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
 				.withBucketName(bucketName)
@@ -229,27 +235,21 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 		return objectsListing.getKeyCount() > 0;
 	}
 
-	@Override
-	public HashMap<String, JsonElement> getAttributes(final String pathName) throws IOException {
-
-		final String attributesKey = getAttributesKey(pathName);
-		if (!s3.doesObjectExist(bucketName, attributesKey))
-			return new HashMap<>();
-
-		try (final InputStream in = readS3Object(attributesKey)) {
-			return GsonAttributesParser.readAttributes(new InputStreamReader(in), gson);
-		}
-	}
-
-	@Override public JsonElement getAttributesJson(String pathName) throws IOException {
+	@Override public JsonElement getAttributes(String pathName) throws IOException {
 
 		final String attributesKey = getAttributesKey(pathName);
 		if (!s3.doesObjectExist(bucketName, attributesKey))
 			return null;
 
 		try (final InputStream in = readS3Object(attributesKey)) {
-			return GsonAttributesParser.readAttributesJson(new InputStreamReader(in), gson);
+			return GsonN5Reader.readAttributes(new InputStreamReader(in), gson);
 		}
+	}
+
+	@Override
+	public Map<String, Class<?>> listAttributes(String pathName) throws IOException {
+
+		return GsonN5Reader.listAttributes(getAttributes(pathName));
 	}
 
 	@Override
@@ -375,6 +375,11 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 */
 	protected String getFullPath(final String relativePath) {
 
+		return getFullPath(containerPath, relativePath);
+	}
+
+	protected static String getFullPath(String containerPath, String relativePath) {
+
 		final String fullPath = Paths.get(removeLeadingSlash(containerPath), relativePath).toString();
 		return removeLeadingSlash(replaceBackSlashes(fullPath));
 	}
@@ -397,6 +402,10 @@ public class N5AmazonS3Reader extends AbstractGsonReader implements N5Reader {
 	 * @return
 	 */
 	protected boolean isContainerBucketRoot() {
+		return isContainerBucketRoot(containerPath);
+	}
+
+	protected static boolean isContainerBucketRoot(String containerPath) {
 		return removeLeadingSlash(containerPath).isEmpty();
 	}
 }

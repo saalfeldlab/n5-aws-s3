@@ -28,17 +28,15 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import java.io.IOException;
-
+import com.amazonaws.services.s3.AmazonS3;
+import com.google.gson.GsonBuilder;
+import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.junit.AfterClass;
-import org.junit.Assert;
 
-import com.amazonaws.services.s3.AmazonS3;
+import java.io.IOException;
 
 public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5AmazonS3Test {
-
-    protected static String testContainerPath = "/test/container/";
 
     public AbstractN5AmazonS3ContainerPathTest(final AmazonS3 s3) {
 
@@ -48,21 +46,32 @@ public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5Amaz
     @Override
     protected N5Writer createN5Writer() throws IOException {
 
-        return new N5AmazonS3Writer(s3, testBucketName, testContainerPath);
+        final String bucketName = tempBucketName();
+        final String containerPath = tempContainerPath();
+        return new N5AmazonS3Writer(s3, bucketName, containerPath);
     }
 
     @Override protected N5Writer createN5Writer(String location) throws IOException {
 
-        return new N5AmazonS3Writer(s3, testBucketName, location);
+        final String bucketName = tempBucketName();
+        return new N5AmazonS3Writer(s3, bucketName, location);
+    }
+
+    @Override protected N5Writer createN5Writer(String location, GsonBuilder gson) throws IOException {
+
+        final String bucketName = tempBucketName();
+        return new N5AmazonS3Writer(s3, bucketName, location, gson);
+    }
+
+    @Override protected N5Reader createN5Reader(String location, GsonBuilder gson) throws IOException {
+
+        final String bucketName = tempBucketName();
+        return new N5AmazonS3Reader(s3, bucketName, location, gson);
     }
 
     @AfterClass
     public static void cleanup() throws IOException {
 
         rampDownAfterClass();
-        Assert.assertTrue(s3.doesBucketExistV2(testBucketName));
-        Assert.assertFalse(s3.doesObjectExist(testBucketName, "test/"));
-        new N5AmazonS3Writer(s3, testBucketName).remove();
-        Assert.assertFalse(s3.doesBucketExistV2(testBucketName));
     }
 }

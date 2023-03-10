@@ -29,7 +29,7 @@
 package org.janelia.saalfeldlab.n5.s3;
 
 import java.io.IOException;
-import java.util.UUID;
+import java.nio.file.Paths;
 
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.junit.Assert;
@@ -45,13 +45,21 @@ import com.amazonaws.services.s3.AmazonS3;
  */
 public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 
-	protected static String testBucketName = "n5-test-" + UUID.randomUUID();
-
 	protected static AmazonS3 s3;
 
 	public AbstractN5AmazonS3Test(final AmazonS3 s3) {
 
 		AbstractN5AmazonS3Test.s3 = s3;
+	}
+
+	protected String tempBucketName() {
+
+		return Paths.get(AbstractN5Test.tempN5PathName()).getFileName().toString();
+	}
+
+	protected String tempContainerPath() {
+		return AbstractN5Test.tempN5PathName();
+
 	}
 
 	/**

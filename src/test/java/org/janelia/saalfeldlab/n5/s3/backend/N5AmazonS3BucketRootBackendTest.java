@@ -50,6 +50,7 @@ public class N5AmazonS3BucketRootBackendTest extends AbstractN5AmazonS3BucketRoo
     protected N5Writer createN5Writer() throws IOException {
 
         N5AmazonS3DelayedWriter.sleep();
+        final String testBucketName = tempBucketName();
         return new N5AmazonS3DelayedWriter(s3, testBucketName);
     }
 }

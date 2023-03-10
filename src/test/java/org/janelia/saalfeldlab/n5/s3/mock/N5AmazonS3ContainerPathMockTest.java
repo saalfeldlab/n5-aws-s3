@@ -28,7 +28,19 @@
  */
 package org.janelia.saalfeldlab.n5.s3.mock;
 
+import com.google.gson.GsonBuilder;
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3ContainerPathTest;
+import org.janelia.saalfeldlab.n5.s3.N5AmazonS3Reader;
+import org.janelia.saalfeldlab.n5.s3.N5AmazonS3Writer;
+import org.junit.Test;
+
+import java.io.IOException;
+
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
+
 /**
  * Initiates testing of the Amazon Web Services S3-based N5 implementation using S3 mock library.
  * A non-trivial container path is used to create the test N5 container in the temporary bucket.
@@ -37,8 +49,54 @@ import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3ContainerPathTest;
  */
 public class N5AmazonS3ContainerPathMockTest extends AbstractN5AmazonS3ContainerPathTest {
 
-    public N5AmazonS3ContainerPathMockTest() {
+	public N5AmazonS3ContainerPathMockTest() {
 
-        super(MockS3Factory.getOrCreateS3());
-    }
+		super(MockS3Factory.getOrCreateS3());
+	}
+
+	@Test
+	@Override
+	public void testReaderCreation() throws IOException {
+
+		final String containerPath = tempN5PathName();
+        final String bucketName = tempBucketName();
+        try (N5Writer writer = new N5AmazonS3Writer(s3, bucketName, containerPath, new GsonBuilder())) {
+
+			final N5Reader n5r = new N5AmazonS3Reader(s3, bucketName, containerPath, new GsonBuilder());
+			assertNotNull(n5r);
+
+			// existing directory without attributes is okay;
+			// Remove and create to remove attributes store
+			writer.remove("/");
+			writer.createGroup("/");
+			final N5Reader na = new N5AmazonS3Reader(s3, bucketName, containerPath, new GsonBuilder());
+			assertNotNull(na);
+
+			// existing location with attributes, but no version
+			writer.remove("/");
+			writer.createGroup("/");
+			writer.setAttribute("/", "mystring", "ms");
+			final N5Reader wa = new N5AmazonS3Reader(s3, bucketName, containerPath, new GsonBuilder());
+			assertNotNull(wa);
+
+			// existing directory with incompatible version should fail
+			writer.remove("/");
+			writer.createGroup("/");
+			writer.setAttribute("/", N5Reader.VERSION_KEY,
+					new N5Reader.Version(N5Reader.VERSION.getMajor() + 1, N5Reader.VERSION.getMinor(), N5Reader.VERSION.getPatch()).toString());
+			assertThrows("Incompatible version throws error", IOException.class,
+					() -> {
+						new N5AmazonS3Reader(s3, bucketName, containerPath, new GsonBuilder());
+					});
+
+			// non-existent directory should fail
+			writer.remove("/");
+			assertThrows("Non-existant location throws error", IOException.class,
+					() -> {
+						final N5Reader test = new N5AmazonS3Reader(s3, bucketName, containerPath, new GsonBuilder());
+						test.list("/");
+					});
+		}
+	}
+
 }

@@ -29,10 +29,12 @@
 package org.janelia.saalfeldlab.n5.s3;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 
+import com.google.gson.GsonBuilder;
+import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.junit.AfterClass;
-import org.junit.Assert;
 
 import com.amazonaws.services.s3.AmazonS3;
 
@@ -46,18 +48,29 @@ public abstract class AbstractN5AmazonS3BucketRootTest extends AbstractN5AmazonS
     @Override
     protected N5Writer createN5Writer() throws IOException {
 
-        return new N5AmazonS3Writer(s3, testBucketName);
+        final String bucketName = tempBucketName();
+        return new N5AmazonS3Writer(s3, bucketName);
     }
 
     @Override protected N5Writer createN5Writer(String location) throws IOException {
 
-        return new N5AmazonS3Writer(s3, location.substring(location.lastIndexOf('/') + 1 ));
+        return new N5AmazonS3Writer(s3, Paths.get(location).getFileName().toString());
+    }
+
+    @Override protected N5Writer createN5Writer(String location, GsonBuilder gson) throws IOException {
+
+        return new N5AmazonS3Writer(s3, Paths.get(location).getFileName().toString(), gson);
+
+    }
+
+    @Override protected N5Reader createN5Reader(String location, GsonBuilder gson) throws IOException {
+
+        return new N5AmazonS3Reader(s3, Paths.get(location).getFileName().toString(), gson);
     }
 
     @AfterClass
     public static void cleanup() throws IOException {
 
         rampDownAfterClass();
-        Assert.assertFalse(s3.doesBucketExistV2(testBucketName));
     }
 }

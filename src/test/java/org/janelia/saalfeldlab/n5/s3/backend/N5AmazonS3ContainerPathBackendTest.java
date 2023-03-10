@@ -50,6 +50,8 @@ public class N5AmazonS3ContainerPathBackendTest extends AbstractN5AmazonS3Contai
     protected N5Writer createN5Writer() throws IOException {
 
         N5AmazonS3DelayedWriter.sleep();
-        return new N5AmazonS3DelayedWriter(s3, testBucketName, testContainerPath);
+        final String bucketName = tempBucketName();
+        final String containerPath = tempContainerPath();
+        return new N5AmazonS3DelayedWriter(s3, bucketName, containerPath);
     }
 }

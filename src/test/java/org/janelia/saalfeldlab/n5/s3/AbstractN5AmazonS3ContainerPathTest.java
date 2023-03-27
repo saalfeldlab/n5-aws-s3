@@ -33,8 +33,12 @@ import com.google.gson.GsonBuilder;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.junit.AfterClass;
+import org.junit.Test;
 
 import java.io.IOException;
+
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 
 public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5AmazonS3Test {
 
@@ -51,22 +55,55 @@ public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5Amaz
         return new N5AmazonS3Writer(s3, bucketName, containerPath);
     }
 
-    @Override protected N5Writer createN5Writer(String location) throws IOException {
+    @Override protected N5Writer createN5Writer(final String location) throws IOException {
 
         final String bucketName = tempBucketName();
         return new N5AmazonS3Writer(s3, bucketName, location);
     }
 
-    @Override protected N5Writer createN5Writer(String location, GsonBuilder gson) throws IOException {
+    protected N5Writer createN5Writer(final String bucket, final String location) throws IOException {
+
+        return new N5AmazonS3Writer(s3, bucket, location);
+    }
+
+    protected N5Reader createN5Reader(final String bucket, final String location) throws IOException {
+
+        return new N5AmazonS3Reader(s3, bucket, location);
+    }
+
+    @Override protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException {
 
         final String bucketName = tempBucketName();
         return new N5AmazonS3Writer(s3, bucketName, location, gson);
     }
 
-    @Override protected N5Reader createN5Reader(String location, GsonBuilder gson) throws IOException {
+    @Override protected N5Reader createN5Reader(final String location, final GsonBuilder gson) throws IOException {
 
         final String bucketName = tempBucketName();
         return new N5AmazonS3Reader(s3, bucketName, location, gson);
+    }
+
+    protected N5Writer createN5Writer(final String bucket, final String location, final GsonBuilder gson) throws IOException {
+
+        return new N5AmazonS3Writer(s3, bucket, location, gson);
+    }
+
+    protected N5Reader createN5Reader(final String bucket, final String location, final GsonBuilder gson) throws IOException {
+
+        return new N5AmazonS3Reader(s3, bucket, location, gson);
+    }
+
+    @Override @Test
+    public void testRemoveContainer() throws IOException {
+
+        final String location = tempN5PathName();
+        final String tempBucket = tempBucketName();
+        try (final N5Writer n5 = createN5Writer(tempBucket, location)) {
+            assertNotNull(createN5Reader(tempBucket, location));
+            n5.remove();
+            assertThrows(Exception.class, () -> createN5Reader(tempBucket, location));
+        }
+        assertThrows(Exception.class, () -> createN5Reader(tempBucket, location));
     }
 
     @AfterClass

@@ -187,6 +187,9 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements GsonN5Writer {
 	@Override public <T> void setAttribute(String pathName, String key, T attribute) throws IOException {
 
 		JsonElement attributesRoot = getAttributes(pathName);
+		if (attributesRoot == null && !exists(pathName)) {
+			throw new IOException("Group " + pathName + " does not exist");
+		}
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
 			final String attributePath = N5URL.normalizeAttributePath(key);
 			GsonN5Writer.writeAttribute(new OutputStreamWriter(byteStream), attributesRoot, attributePath, attribute, getGson());
@@ -200,6 +203,9 @@ public class N5AmazonS3Writer extends N5AmazonS3Reader implements GsonN5Writer {
 			final Map<String, ?> attributes) throws IOException {
 
 		JsonElement root = getAttributes(pathName);
+		if (root == null && !exists(pathName)) {
+			throw new IOException("Group " + pathName + " does not exist");
+		}
 		root = GsonN5Writer.insertAttributes(root, attributes, gson);
 
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {

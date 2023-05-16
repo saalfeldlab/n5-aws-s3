@@ -29,6 +29,7 @@
 package org.janelia.saalfeldlab.n5.s3.mock;
 
 import com.google.gson.GsonBuilder;
+import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3ContainerPathTest;
@@ -58,7 +59,7 @@ public class N5AmazonS3ContainerPathMockTest extends AbstractN5AmazonS3Container
 	@Override
 	public void testReaderCreation() throws IOException {
 
-		final String containerPath = tempN5PathName();
+		final String containerPath = tempContainerPath();
         final String bucketName = tempBucketName();
         try (N5Writer writer = new N5AmazonS3Writer(s3, bucketName, containerPath, new GsonBuilder())) {
 
@@ -84,14 +85,14 @@ public class N5AmazonS3ContainerPathMockTest extends AbstractN5AmazonS3Container
 			writer.createGroup("/");
 			writer.setAttribute("/", N5Reader.VERSION_KEY,
 					new N5Reader.Version(N5Reader.VERSION.getMajor() + 1, N5Reader.VERSION.getMinor(), N5Reader.VERSION.getPatch()).toString());
-			assertThrows("Incompatible version throws error", IOException.class,
+			assertThrows("Incompatible version throws error", N5Exception.N5IOException.class,
 					() -> {
 						new N5AmazonS3Reader(s3, bucketName, containerPath, new GsonBuilder());
 					});
 
 			// non-existent directory should fail
 			writer.remove("/");
-			assertThrows("Non-existant location throws error", IOException.class,
+			assertThrows("Non-existant location throws error", N5Exception.N5IOException.class,
 					() -> {
 						final N5Reader test = new N5AmazonS3Reader(s3, bucketName, containerPath, new GsonBuilder());
 						test.list("/");

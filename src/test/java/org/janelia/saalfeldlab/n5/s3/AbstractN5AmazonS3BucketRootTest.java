@@ -28,15 +28,11 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import java.io.IOException;
-import java.nio.file.Paths;
-
-import com.google.gson.GsonBuilder;
-import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.N5Writer;
-import org.junit.AfterClass;
-
 import com.amazonaws.services.s3.AmazonS3;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import org.junit.AfterClass;
 
 public abstract class AbstractN5AmazonS3BucketRootTest extends AbstractN5AmazonS3Test {
 
@@ -45,30 +41,12 @@ public abstract class AbstractN5AmazonS3BucketRootTest extends AbstractN5AmazonS
         super(s3);
     }
 
-    @Override
-    protected N5Writer createN5Writer() throws IOException {
+	@Override
+	protected String tempN5Location() throws URISyntaxException {
+		return new URI("s3", tempBucketName(), "/", null).toString();
+	}
 
-        final String bucketName = tempBucketName();
-        return new N5AmazonS3Writer(s3, bucketName);
-    }
-
-    @Override protected N5Writer createN5Writer(String location) throws IOException {
-
-        return new N5AmazonS3Writer(s3, Paths.get(location).getFileName().toString());
-    }
-
-    @Override protected N5Writer createN5Writer(String location, GsonBuilder gson) throws IOException {
-
-        return new N5AmazonS3Writer(s3, Paths.get(location).getFileName().toString(), gson);
-
-    }
-
-    @Override protected N5Reader createN5Reader(String location, GsonBuilder gson) throws IOException {
-
-        return new N5AmazonS3Reader(s3, Paths.get(location).getFileName().toString(), gson);
-    }
-
-    @AfterClass
+	@AfterClass
     public static void cleanup() throws IOException {
 
         rampDownAfterClass();

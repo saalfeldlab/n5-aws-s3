@@ -55,17 +55,17 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
 
     private static final long delayMsec = 1000;
 
-    public N5AmazonS3DelayedWriter(final AmazonS3 s3, final String bucketName) throws IOException {
+    public N5AmazonS3DelayedWriter(final AmazonS3 s3, final String bucketName, final GsonBuilder gson, final boolean cacheAttributes) throws IOException {
 
-        super(s3, bucketName, new GsonBuilder());
+        super(s3, bucketName, gson, cacheAttributes);
         sleep();
     }
 
-    public N5AmazonS3DelayedWriter(final AmazonS3 s3, final String bucketName, final String containerPath) throws IOException {
+	public N5AmazonS3DelayedWriter(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gson, final boolean cacheAttributes) throws IOException {
 
-        super(s3, bucketName, containerPath, new GsonBuilder());
-        sleep();
-    }
+		super(s3, bucketName, basePath, gson, cacheAttributes);
+		sleep();
+	}
 
     @Override
     public void createGroup(final String pathName) throws IOException {
@@ -94,7 +94,7 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
     }
 
     @Override
-    public boolean deleteBlock(final String pathName, final long[] gridPosition) {
+    public boolean deleteBlock(final String pathName, final long[] gridPosition) throws IOException {
 
         final boolean ret = super.deleteBlock(pathName, gridPosition);
         sleep();

@@ -54,19 +54,6 @@ public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5Amaz
 		return new URI("s3", tempBucketName(), tempContainerPath(), null).toString();
 	}
 
-	@Override
-	@Test
-	public void testRemoveContainer() throws IOException, URISyntaxException {
-
-		final String location = new URI("s3", tempBucketName(), tempContainerPath(), null).toString();
-		try (final N5Writer n5 = createN5Writer(location)) {
-			assertNotNull(createN5Reader(location));
-			n5.remove();
-			assertThrows(Exception.class, () -> createN5Reader(location));
-		}
-		assertThrows(Exception.class, () -> createN5Reader(location));
-	}
-
     @AfterClass
     public static void cleanup() throws IOException {
 

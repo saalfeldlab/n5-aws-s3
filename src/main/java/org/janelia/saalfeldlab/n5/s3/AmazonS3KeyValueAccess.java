@@ -422,22 +422,48 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			this.in = in;
 		}
 
-		// TODO (TP) Maybe this should also forward other read(...) methods to this.in?
-		//           Doing everything byte-wise maybe not the most efficient.
-
 		@Override
 		public int read() throws IOException {
-
 			return in.read();
+		}
+
+		@Override
+		public int read(byte[] b, int off, int len) throws IOException {
+			return in.read(b, off, len);
+		}
+
+		@Override
+		public boolean markSupported() {
+			return in.markSupported();
+		}
+
+		@Override
+		public void mark(final int readlimit) {
+			in.mark(readlimit);
+		}
+
+		@Override
+		public void reset() throws IOException {
+			in.reset();
+		}
+
+		@Override
+		public int available() throws IOException {
+			return in.available();
+		}
+
+		@Override
+		public long skip(final long n) throws IOException {
+			return in.skip(n);
 		}
 
 		@Override
 		public void close() throws IOException {
 
-			// TODO (TP) probably better to use available(), skip(int) instead
-
 			if (!closed) {
-				while (read() != -1);
+				do {
+					in.skip(in.available());
+				} while (read() != -1);
 				in.close();
 				closed = true;
 			}

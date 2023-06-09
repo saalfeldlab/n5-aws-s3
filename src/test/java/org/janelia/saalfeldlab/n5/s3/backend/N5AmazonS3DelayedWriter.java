@@ -32,9 +32,9 @@ import java.io.IOException;
 import java.util.Map;
 
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
+import org.janelia.saalfeldlab.n5.CachedGsonKeyValueN5Writer;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.s3.N5AmazonS3Writer;
 
 import com.amazonaws.services.s3.AmazonS3;
@@ -52,7 +52,7 @@ import com.google.gson.GsonBuilder;
  *
  * @see <a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel">https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel</a>
  */
-class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
+class N5AmazonS3DelayedWriter extends N5AmazonS3Writer implements CachedGsonKeyValueN5Writer {
 
     private static final long delayMsec = 1000;
 
@@ -69,18 +69,18 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
 	}
 
     @Override
-    public void createGroup(final String pathName) throws N5Exception {
+    public void createGroup(final String pathName) {
 
-        super.createGroup(pathName);
+		CachedGsonKeyValueN5Writer.super.createGroup(pathName);
         sleep();
     }
 
     @Override
     public void setAttributes(
             final String pathName,
-            final Map<String, ?> attributes) throws N5Exception {
+            final Map<String, ?> attributes) {
 
-        super.setAttributes(pathName, attributes);
+		CachedGsonKeyValueN5Writer.super.setAttributes(pathName, attributes);
         sleep();
     }
 
@@ -88,22 +88,22 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
     public <T> void writeBlock(
             final String pathName,
             final DatasetAttributes datasetAttributes,
-            final DataBlock<T> dataBlock) throws N5Exception {
+            final DataBlock<T> dataBlock) {
 
-        super.writeBlock(pathName, datasetAttributes, dataBlock);
+		CachedGsonKeyValueN5Writer.super.writeBlock(pathName, datasetAttributes, dataBlock);
         sleep();
     }
 
     @Override
-    public boolean deleteBlock(final String pathName, final long[] gridPosition) throws N5Exception {
+    public boolean deleteBlock(final String pathName, final long[] gridPosition) {
 
-        final boolean ret = super.deleteBlock(pathName, gridPosition);
+		final boolean ret = CachedGsonKeyValueN5Writer.super.deleteBlock(pathName, gridPosition);
         sleep();
         return ret;
     }
 
     @Override
-    public boolean remove() throws N5Exception {
+    public boolean remove() {
 
         final boolean ret = super.remove();
         sleep();
@@ -111,9 +111,9 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
     }
 
     @Override
-    public boolean remove(final String pathName) throws N5Exception {
+    public boolean remove(final String pathName) {
 
-        final boolean ret = super.remove(pathName);
+		final boolean ret = CachedGsonKeyValueN5Writer.super.remove(pathName);
         sleep();
         return ret;
     }

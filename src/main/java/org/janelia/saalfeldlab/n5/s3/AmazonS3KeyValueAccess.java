@@ -526,7 +526,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			return reader;
 		}
 
-		@Overridehisto
+		@Override
 		public OutputStream newOutputStream() throws IOException {
 
 			checkWritable();

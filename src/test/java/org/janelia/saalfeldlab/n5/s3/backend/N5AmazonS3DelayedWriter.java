@@ -34,6 +34,7 @@ import java.util.Map;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
+import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.s3.N5AmazonS3Writer;
 
 import com.amazonaws.services.s3.AmazonS3;
@@ -68,7 +69,7 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
 	}
 
     @Override
-    public void createGroup(final String pathName) throws IOException {
+    public void createGroup(final String pathName) throws N5Exception {
 
         super.createGroup(pathName);
         sleep();
@@ -77,7 +78,7 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
     @Override
     public void setAttributes(
             final String pathName,
-            final Map<String, ?> attributes) throws IOException {
+            final Map<String, ?> attributes) throws N5Exception {
 
         super.setAttributes(pathName, attributes);
         sleep();
@@ -87,14 +88,14 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
     public <T> void writeBlock(
             final String pathName,
             final DatasetAttributes datasetAttributes,
-            final DataBlock<T> dataBlock) throws IOException {
+            final DataBlock<T> dataBlock) throws N5Exception {
 
         super.writeBlock(pathName, datasetAttributes, dataBlock);
         sleep();
     }
 
     @Override
-    public boolean deleteBlock(final String pathName, final long[] gridPosition) throws IOException {
+    public boolean deleteBlock(final String pathName, final long[] gridPosition) throws N5Exception {
 
         final boolean ret = super.deleteBlock(pathName, gridPosition);
         sleep();
@@ -102,7 +103,7 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
     }
 
     @Override
-    public boolean remove() throws IOException {
+    public boolean remove() throws N5Exception {
 
         final boolean ret = super.remove();
         sleep();
@@ -110,7 +111,7 @@ class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
     }
 
     @Override
-    public boolean remove(final String pathName) throws IOException {
+    public boolean remove(final String pathName) throws N5Exception {
 
         final boolean ret = super.remove(pathName);
         sleep();

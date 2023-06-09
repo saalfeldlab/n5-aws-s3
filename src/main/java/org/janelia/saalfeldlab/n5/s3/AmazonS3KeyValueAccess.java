@@ -1,16 +1,16 @@
 /**
  * Copyright (c) 2017, Stephan Saalfeld
  * All rights reserved.
- *
+ * <p>
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- *
+ * <p>
  * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
+ * this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+ * <p>
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -32,6 +32,10 @@ import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.LockedChannel;
+import org.janelia.saalfeldlab.n5.N5Exception;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -53,9 +57,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.janelia.saalfeldlab.n5.KeyValueAccess;
-import org.janelia.saalfeldlab.n5.LockedChannel;
-import org.janelia.saalfeldlab.n5.N5Exception;
 
 public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
@@ -74,7 +75,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * @param createBucket whether {@code bucketName} should be created if it doesn't exist
 	 * @throws IOException
 	 */
-	public AmazonS3KeyValueAccess(final AmazonS3 s3, final String bucketName, final boolean createBucket) throws  N5Exception.N5IOException {
+	public AmazonS3KeyValueAccess(final AmazonS3 s3, final String bucketName, final boolean createBucket) throws N5Exception.N5IOException {
 
 		this.s3 = s3;
 		this.bucketName = bucketName;
@@ -105,8 +106,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		if (root == null) {
 			components = new String[fsPath.getNameCount()];
 			o = 0;
-		}
-		else {
+		} else {
 			components = new String[fsPath.getNameCount() + 1];
 			components[0] = root.toString();
 			o = 1;
@@ -145,8 +145,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		//       Or should this be different here? Needs more thought...
 
 		final Path parent = fileSystem.getPath(path).getParent();
-		if (parent == null) return null;
-		else return parent.toString();
+		if (parent == null)
+			return null;
+		else
+			return parent.toString();
 	}
 
 	@Override
@@ -176,8 +178,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	}
 
 	@Override
-	public String absoluteURI(final String normalPath) throws URISyntaxException {
-		return new URI("s3", bucketName, normalPath, null).toString();
+	public URI uri(final String normalPath) throws URISyntaxException {
+
+		return new URI("s3", bucketName, normalPath, null);
 	}
 
 	/**
@@ -192,6 +195,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 */
 	@Override
 	public boolean exists(String normalPath) {
+
 		return isDirectory(normalPath) || isFile(normalPath);
 	}
 
@@ -201,8 +205,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * @return shortest key with the given {@code prefix}, or {@code null} if there is no key with that prefix.
 	 */
 	// TODO: REMOVE?
-	private String shortestKeyWithPrefix(final String prefix)
-	{
+	private String shortestKeyWithPrefix(final String prefix) {
+
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
 				.withBucketName(bucketName)
 				.withPrefix(prefix)
@@ -218,8 +222,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 *
 	 * @return {@code true} if {@code key} exists.
 	 */
-	private boolean keyExists(final String key)
-	{
+	private boolean keyExists(final String key) {
+
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
 				.withBucketName(bucketName)
 				.withPrefix(key)
@@ -241,6 +245,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * @return
 	 */
 	private static String addTrailingSlash(final String path) {
+
 		return path.endsWith("/") ? path : path + "/";
 	}
 
@@ -252,6 +257,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * @return
 	 */
 	private static String removeLeadingSlash(final String path) {
+
 		return path.startsWith("/") ? path.substring(1) : path;
 	}
 
@@ -267,6 +273,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 */
 	@Override
 	public boolean isDirectory(final String normalPath) {
+
 		final String key = removeLeadingSlash(addTrailingSlash(normalPath));
 		return key.isEmpty() || keyExists(key);
 	}
@@ -283,16 +290,19 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 */
 	@Override
 	public boolean isFile(final String normalPath) {
+
 		return !normalPath.endsWith("/") && keyExists(removeLeadingSlash(normalPath));
 	}
 
 	@Override
 	public LockedChannel lockForReading(final String normalPath) throws IOException {
+
 		return new S3ObjectChannel(removeLeadingSlash(normalPath), true);
 	}
 
 	@Override
 	public LockedChannel lockForWriting(final String normalPath) throws IOException {
+
 		return new S3ObjectChannel(removeLeadingSlash(normalPath), false);
 	}
 
@@ -306,10 +316,12 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 */
 	@Override
 	public String[] listDirectories(final String normalPath) throws IOException {
+
 		return list(normalPath, true);
 	}
 
 	private String[] list(final String normalPath, boolean onlyDirectories) throws IOException {
+
 		final List<String> subGroups = new ArrayList<>();
 		final String prefix = removeLeadingSlash(addTrailingSlash(normalPath));
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
@@ -334,11 +346,13 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 	@Override
 	public String[] list(final String normalPath) throws IOException {
+
 		return list(normalPath, false);
 	}
 
 	@Override
 	public void createDirectories(final String normalPath) throws IOException {
+
 		String path = "";
 		for (String component : components(removeLeadingSlash(normalPath))) {
 			path = addTrailingSlash(compose(path, component));
@@ -368,7 +382,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		if (!path.endsWith("/")) {
 			s3.deleteObjects(new DeleteObjectsRequest(bucketName)
-					.withKeys(new String[] {path} ));
+					.withKeys(new String[]{path}));
 		}
 
 		final String prefix = addTrailingSlash(path);
@@ -389,17 +403,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			listObjectsRequest.setContinuationToken(objectsListing.getNextContinuationToken());
 		} while (objectsListing.isTruncated());
 	}
-
-
-
-
-
-
-
-
-
-
-
 
 	/**
 	 * Helper class that drains the rest of the {@link S3ObjectInputStream} on {@link #close()}.
@@ -424,36 +427,43 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		@Override
 		public int read() throws IOException {
+
 			return in.read();
 		}
 
 		@Override
 		public int read(byte[] b, int off, int len) throws IOException {
+
 			return in.read(b, off, len);
 		}
 
 		@Override
 		public boolean markSupported() {
+
 			return in.markSupported();
 		}
 
 		@Override
 		public void mark(final int readlimit) {
+
 			in.mark(readlimit);
 		}
 
 		@Override
 		public void reset() throws IOException {
+
 			in.reset();
 		}
 
 		@Override
 		public int available() throws IOException {
+
 			return in.available();
 		}
 
 		@Override
 		public long skip(final long n) throws IOException {
+
 			return in.skip(n);
 		}
 
@@ -489,6 +499,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 
 		private void checkWritable() {
+
 			if (readOnly) {
 				throw new NonReadableChannelException();
 			}
@@ -515,14 +526,16 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			return reader;
 		}
 
-		@Override
+		@Overridehisto
 		public OutputStream newOutputStream() throws IOException {
+
 			checkWritable();
 			return new S3OutputStream();
 		}
 
 		@Override
 		public Writer newWriter() throws IOException {
+
 			checkWritable();
 			final OutputStreamWriter writer = new OutputStreamWriter(newOutputStream(), StandardCharsets.UTF_8);
 			synchronized (resources) {
@@ -541,24 +554,26 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			}
 		}
 
-		final class S3OutputStream extends OutputStream
-		{
+		final class S3OutputStream extends OutputStream {
 			private final ByteArrayOutputStream buf = new ByteArrayOutputStream();
 
 			private boolean closed = false;
 
 			@Override
 			public void write(final byte[] b, final int off, final int len) throws IOException {
+
 				buf.write(b, off, len);
 			}
 
 			@Override
 			public void write(final int b) throws IOException {
+
 				buf.write(b);
 			}
 
 			@Override
 			public synchronized void close() throws IOException {
+
 				if (!closed) {
 					closed = true;
 					final byte[] bytes = buf.toByteArray();

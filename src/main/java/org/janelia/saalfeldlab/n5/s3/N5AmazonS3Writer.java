@@ -28,16 +28,17 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
+import java.io.IOException;
+
+import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
+
 import com.amazonaws.services.s3.AmazonS3;
 import com.google.gson.GsonBuilder;
-import java.io.IOException;
-import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
-import org.janelia.saalfeldlab.n5.N5Writer;
 
 /**
  * TODO: javadoc
  */
-public class N5AmazonS3Writer extends N5KeyValueWriter implements N5Writer {
+public class N5AmazonS3Writer extends N5KeyValueWriter {
 
 	/**
 	 * TODO: reduce number of constructors ?

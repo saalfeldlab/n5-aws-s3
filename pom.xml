@@ -117,7 +117,6 @@
 		<dependency>
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5</artifactId>
-			<version>${n5.version}</version>
 			<classifier>tests</classifier>
 			<scope>test</scope>
 		</dependency>

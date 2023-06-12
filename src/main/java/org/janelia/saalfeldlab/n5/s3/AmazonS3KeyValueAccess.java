@@ -105,7 +105,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		final FileSystem fileSystem = FileSystems.getDefault();
 		// TODO: The code below is identical to FileSystemKeyValueAccess#components
-		//       Should this be put somewhere more general?  N5URL?
+		//       Should this be put somewhere more general?  N5URI?
 		//       Or should this be different here? Needs more thought...
 
 		final Path fsPath = fileSystem.getPath(path);
@@ -133,7 +133,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		final FileSystem fileSystem = FileSystems.getDefault();
 		// TODO: The code below is identical to FileSystemKeyValueAccess#compose
-		//       Should this be put somewhere more general?  N5URL?
+		//       Should this be put somewhere more general?  N5URI?
 		//       Or should this be different here? Needs more thought...
 
 		if (components == null || components.length == 0)
@@ -150,7 +150,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		final FileSystem fileSystem = FileSystems.getDefault();
 		// TODO: The code below is identical to FileSystemKeyValueAccess#compose
-		//       Should this be put somewhere more general?  N5URL?
+		//       Should this be put somewhere more general?  N5URI?
 		//       Or should this be different here? Needs more thought...
 
 		final Path parent = fileSystem.getPath(path).getParent();

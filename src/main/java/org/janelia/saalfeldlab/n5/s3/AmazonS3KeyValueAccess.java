@@ -25,17 +25,6 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.ListObjectsV2Request;
-import com.amazonaws.services.s3.model.ListObjectsV2Result;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
-import org.janelia.saalfeldlab.n5.KeyValueAccess;
-import org.janelia.saalfeldlab.n5.LockedChannel;
-import org.janelia.saalfeldlab.n5.N5Exception;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -57,6 +46,20 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.LockedChannel;
+import org.janelia.saalfeldlab.n5.N5Exception;
+
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.CreateBucketRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.Region;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.model.S3ObjectSummary;
 
 public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
@@ -82,7 +85,13 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		if (!s3.doesBucketExistV2(bucketName)) {
 			if (createBucket) {
-				s3.createBucket(bucketName);
+				Region region;
+				try {
+					region = s3.getRegion();
+				} catch (final IllegalStateException e) {
+					region = Region.US_Standard;
+				}
+				s3.createBucket(new CreateBucketRequest(bucketName, region));
 			} else {
 				throw new N5Exception.N5IOException("Bucket " + bucketName + " does not exist.");
 			}
@@ -194,7 +203,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * @return {@code true} if {@code path} exists, {@code false} otherwise
 	 */
 	@Override
-	public boolean exists(String normalPath) {
+	public boolean exists(final String normalPath) {
 
 		return isDirectory(normalPath) || isFile(normalPath);
 	}
@@ -320,7 +329,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		return list(normalPath, true);
 	}
 
-	private String[] list(final String normalPath, boolean onlyDirectories) throws IOException {
+	private String[] list(final String normalPath, final boolean onlyDirectories) throws IOException {
 
 		final List<String> subGroups = new ArrayList<>();
 		final String prefix = removeLeadingSlash(addTrailingSlash(normalPath));
@@ -354,7 +363,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public void createDirectories(final String normalPath) throws IOException {
 
 		String path = "";
-		for (String component : components(removeLeadingSlash(normalPath))) {
+		for (final String component : components(removeLeadingSlash(normalPath))) {
 			path = addTrailingSlash(compose(path, component));
 			if (path.equals("/")) {
 				continue;
@@ -432,7 +441,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 
 		@Override
-		public int read(byte[] b, int off, int len) throws IOException {
+		public int read(final byte[] b, final int off, final int len) throws IOException {
 
 			return in.read(b, off, len);
 		}

@@ -37,15 +37,12 @@ import java.io.Reader;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.channels.FileChannel;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.LockedChannel;
@@ -60,6 +57,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Region;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import org.janelia.saalfeldlab.n5.N5URI;
 
 public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
@@ -101,89 +99,47 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public String[] components(final String path) {
 
-		// TODO: implement without using FileSystem
-
-		final FileSystem fileSystem = FileSystems.getDefault();
-		// TODO: The code below is identical to FileSystemKeyValueAccess#components
-		//       Should this be put somewhere more general?  N5URI?
-		//       Or should this be different here? Needs more thought...
-
-		final Path fsPath = fileSystem.getPath(path);
-		final Path root = fsPath.getRoot();
-		final String[] components;
-		int o;
-		if (root == null) {
-			components = new String[fsPath.getNameCount()];
-			o = 0;
-		} else {
-			components = new String[fsPath.getNameCount() + 1];
-			components[0] = root.toString();
-			o = 1;
-		}
-
-		for (int i = o; i < components.length; ++i)
-			components[i] = fsPath.getName(i - o).toString();
-		return components;
+		return Arrays.stream(path.split("/"))
+				.filter(x -> !x.isEmpty())
+				.toArray(String[]::new);
 	}
 
 	@Override
 	public String compose(final String... components) {
 
-		// TODO: implement without using FileSystem
-
-		final FileSystem fileSystem = FileSystems.getDefault();
-		// TODO: The code below is identical to FileSystemKeyValueAccess#compose
-		//       Should this be put somewhere more general?  N5URI?
-		//       Or should this be different here? Needs more thought...
-
 		if (components == null || components.length == 0)
 			return null;
-		if (components.length == 1)
-			return fileSystem.getPath(components[0]).toString();
-		return fileSystem.getPath(components[0], Arrays.copyOfRange(components, 1, components.length)).toString();
+
+		return normalize(
+				Arrays.stream(components)
+				.filter(x -> !x.isEmpty())
+				.collect(Collectors.joining("/"))
+		);
 	}
 
 	@Override
 	public String parent(final String path) {
 
-		// TODO: implement without using FileSystem
+		final String[] components = components(path);
+		final String[] parentComponents =Arrays.copyOf(components, components.length - 1);
 
-		final FileSystem fileSystem = FileSystems.getDefault();
-		// TODO: The code below is identical to FileSystemKeyValueAccess#compose
-		//       Should this be put somewhere more general?  N5URI?
-		//       Or should this be different here? Needs more thought...
-
-		final Path parent = fileSystem.getPath(path).getParent();
-		if (parent == null)
-			return null;
-		else
-			return parent.toString();
+		return compose(parentComponents);
 	}
 
 	@Override
 	public String relativize(final String path, final String base) {
 
-		// TODO: implement without using FileSystem
-
-		final FileSystem fileSystem = FileSystems.getDefault();
-		// TODO: The code below is identical to FileSystemKeyValueAccess#relativize
-
-		final Path basePath = fileSystem.getPath(base);
-		return basePath.relativize(fileSystem.getPath(path)).toString();
+		try {
+			return normalize(uri(base).relativize(uri("/" + path)).getPath());
+		} catch (URISyntaxException e) {
+			throw new N5Exception("Cannot relativize path (" + path +") with base (" + base + ")", e);
+		}
 	}
 
 	@Override
 	public String normalize(final String path) {
 
-		// TODO: implement without using FileSystem
-
-		final FileSystem fileSystem = FileSystems.getDefault();
-		// TODO: The code below is identical to (old version) of FileSystemKeyValueAccess#normalize
-		// TODO: Apparently a recent change breaks something?
-		//       https://imagesc.zulipchat.com/#narrow/stream/328251-NGFF/topic/Read.20zarr.20from.20AWS.20S3.20with.20Java.20N5/near/346881524
-		//       Is this relevant here?
-
-		return fileSystem.getPath(path).normalize().toString();
+		return N5URI.normalizeGroupPath(path);
 	}
 
 	@Override
@@ -489,12 +445,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 	}
 
-	/**
-	 * A {@link FileChannel} wrapper that attempts to acquire a lock and waits
-	 * for existing locks to be lifted before returning if the
-	 * {@link FileSystem} supports that.  If the {@link FileSystem} does not
-	 * support locking, it returns immediately.
-	 */
 	private class S3ObjectChannel implements LockedChannel {
 
 		protected final String path;

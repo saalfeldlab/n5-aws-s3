@@ -338,7 +338,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public void delete(final String normalPath) throws IOException {
 
 		// remove bucket when deleting "/"
-		if (normalPath.equals("/")) {
+		if (normalPath.equals(normalize("/"))) {
 			s3.deleteBucket(bucketName);
 			return;
 		}

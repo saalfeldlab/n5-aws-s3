@@ -284,12 +284,16 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * @throws IOException
 	 */
 	@Override
-	public String[] listDirectories(final String normalPath) throws IOException {
+	public String[] listDirectories(final String normalPath) {
 
 		return list(normalPath, true);
 	}
 
-	private String[] list(final String normalPath, final boolean onlyDirectories) throws IOException {
+	private String[] list(final String normalPath, final boolean onlyDirectories) {
+
+		if (!exists(normalPath)) {
+			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
+		}
 
 		final List<String> subGroups = new ArrayList<>();
 		final String prefix = removeLeadingSlash(addTrailingSlash(normalPath));

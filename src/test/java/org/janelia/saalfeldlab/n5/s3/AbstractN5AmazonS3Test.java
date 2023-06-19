@@ -75,15 +75,6 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 	}
 
 	@Override
-	protected N5Writer createN5Writer() throws IOException, URISyntaxException {
-
-		return createN5Writer(
-				new URI("s3", tempBucketName(), tempContainerPath(), "").toString(),
-				new GsonBuilder()
-		);
-	}
-
-	@Override
 	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
 
 		final URI uri = new URI(location);

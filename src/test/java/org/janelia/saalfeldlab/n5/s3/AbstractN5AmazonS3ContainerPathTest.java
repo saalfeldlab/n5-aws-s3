@@ -29,18 +29,10 @@
 package org.janelia.saalfeldlab.n5.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.google.gson.GsonBuilder;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.N5Writer;
 import org.junit.AfterClass;
-import org.junit.Test;
-
-import java.io.IOException;
-
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThrows;
 
 public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5AmazonS3Test {
 

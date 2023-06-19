@@ -291,7 +291,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 	private String[] list(final String normalPath, final boolean onlyDirectories) {
 
-		if (!exists(normalPath)) {
+		if (!isDirectory(normalPath)) {
 			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
 		}
 

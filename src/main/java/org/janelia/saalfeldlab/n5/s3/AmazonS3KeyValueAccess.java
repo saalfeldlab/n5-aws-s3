@@ -41,6 +41,7 @@ import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -53,6 +54,7 @@ import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
+import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Region;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -347,6 +349,27 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		// remove bucket when deleting "/"
 		if (normalPath.equals(normalize("/"))) {
+
+			// need to delete all objects before deleting the bucket
+			// see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/delete-bucket.html
+			ObjectListing objectListing = s3.listObjects(bucketName);
+            while (true) {
+                final Iterator<S3ObjectSummary> objIter = objectListing.getObjectSummaries().iterator();
+                while (objIter.hasNext()) {
+                    s3.deleteObject(bucketName, objIter.next().getKey());
+                }
+
+                // If the bucket contains many objects, the listObjects() call
+                // might not return all of the objects in the first listing. Check to
+                // see whether the listing was truncated. If so, retrieve the next page of objects
+                // and delete them.
+                if (objectListing.isTruncated()) {
+                    objectListing = s3.listNextBatchOfObjects(objectListing);
+                } else {
+                    break;
+                }
+            }
+
 			s3.deleteBucket(bucketName);
 			return;
 		}

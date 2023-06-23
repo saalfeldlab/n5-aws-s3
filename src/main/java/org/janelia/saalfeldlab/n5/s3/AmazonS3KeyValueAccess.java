@@ -347,6 +347,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public void delete(final String normalPath) throws IOException {
 
+		if (!s3.doesBucketExistV2(bucketName))
+			return;
+
 		// remove bucket when deleting "/"
 		if (normalPath.equals(normalize("/"))) {
 

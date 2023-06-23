@@ -30,6 +30,7 @@ package org.janelia.saalfeldlab.n5.s3;
 
 import java.io.IOException;
 
+import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
 
 import com.amazonaws.services.s3.AmazonS3;
@@ -110,5 +111,12 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName) throws IOException {
 
 		this(s3, bucketName, "/", new GsonBuilder());
+	}
+
+	@Override public boolean remove() throws N5Exception {
+
+		if (!exists("/"))
+			return true;
+		return super.remove();
 	}
 }

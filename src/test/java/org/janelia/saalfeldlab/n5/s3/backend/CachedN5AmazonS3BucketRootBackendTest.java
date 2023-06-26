@@ -56,7 +56,15 @@ public class CachedN5AmazonS3BucketRootBackendTest extends AbstractN5AmazonS3Buc
 		final String bucketName = uri.getHost();
 
 		N5AmazonS3DelayedWriter.sleep();
-		return new N5AmazonS3DelayedWriter(s3, bucketName, gson, true);
+		return new N5AmazonS3DelayedWriter(s3, bucketName, gson, true) {
+
+			@Override public void close() {
+
+				remove();
+				super.close();
+			}
+
+		};
 	}
 
 }

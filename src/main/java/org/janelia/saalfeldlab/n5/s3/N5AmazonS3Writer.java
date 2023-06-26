@@ -112,11 +112,4 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 
 		this(s3, bucketName, "/", new GsonBuilder());
 	}
-
-	@Override public boolean remove() throws N5Exception {
-
-		if (!exists("/"))
-			return true;
-		return super.remove();
-	}
 }

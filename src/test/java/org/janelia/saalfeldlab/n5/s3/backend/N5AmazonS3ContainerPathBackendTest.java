@@ -35,7 +35,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3ContainerPathTest;
-import org.janelia.saalfeldlab.n5.s3.N5AmazonS3Writer;
 
 /**
  * Initiates testing of the Amazon Web Services S3-based N5 implementation using actual S3 backend.

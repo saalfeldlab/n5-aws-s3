@@ -29,7 +29,6 @@
 package org.janelia.saalfeldlab.n5.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Exception;
@@ -65,12 +64,12 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
 	}
 
-	protected String tempBucketName() {
+	protected static String tempBucketName() {
 
 		return generateName("n5-test-", "-bucket");
 	}
 
-	protected String tempContainerPath() {
+	protected static String tempContainerPath() {
 
 		return generateName("/n5-test-", ".n5");
 	}

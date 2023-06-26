@@ -33,16 +33,32 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import org.junit.AfterClass;
+import org.junit.BeforeClass;
 
 public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5AmazonS3Test {
 
-    public AbstractN5AmazonS3ContainerPathTest(final AmazonS3 s3) {
+    protected static String bucketName;
+
+	public AbstractN5AmazonS3ContainerPathTest(final AmazonS3 s3) {
 
         super(s3);
     }
 
+	@BeforeClass
+	public static void setup() throws IOException, URISyntaxException {
+		bucketName = tempBucketName();
+	}
+
 	@Override
 	protected String tempN5Location() throws URISyntaxException {
-		return new URI("s3", tempBucketName(), tempContainerPath(), null).toString();
+		return new URI("s3", bucketName, tempContainerPath(), null).toString();
 	}
+
+	@AfterClass
+	public static void cleanup() throws IOException {
+
+		rampDownAfterClass();
+		s3.deleteBucket(bucketName);
+	}
+
 }

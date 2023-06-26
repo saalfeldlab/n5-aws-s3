@@ -29,6 +29,7 @@
 package org.janelia.saalfeldlab.n5.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Exception;
@@ -74,6 +75,21 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 		return generateName("/n5-test-", ".n5");
 	}
 
+	@Override protected N5Writer createN5Writer() throws IOException, URISyntaxException {
+
+		final URI uri = new URI(tempN5Location());
+		final String bucketName = uri.getHost();
+		final String basePath = uri.getPath();
+		return new N5AmazonS3Writer(s3, bucketName, basePath, new GsonBuilder()) {
+
+			@Override public void close() {
+
+				remove();
+				super.close();
+			}
+		};
+	}
+
 	@Override
 	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
 
@@ -99,47 +115,49 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 	 * @throws IOException
 	 */
 	@Test
-	public void testExistsUsingListingObjects() throws IOException {
+	public void testExistsUsingListingObjects() throws IOException, URISyntaxException {
 
-		n5.createGroup("/one/two/three");
+		try (N5Writer n5 = createN5Writer()) {
+			n5.createGroup("/one/two/three");
 
-		Assert.assertTrue(n5.exists(""));
-		Assert.assertTrue(n5.exists("/"));
+			Assert.assertTrue(n5.exists(""));
+			Assert.assertTrue(n5.exists("/"));
 
-		Assert.assertTrue(n5.exists("one"));
-		Assert.assertTrue(n5.exists("one/"));
-		Assert.assertTrue(n5.exists("/one"));
-		Assert.assertTrue(n5.exists("/one/"));
+			Assert.assertTrue(n5.exists("one"));
+			Assert.assertTrue(n5.exists("one/"));
+			Assert.assertTrue(n5.exists("/one"));
+			Assert.assertTrue(n5.exists("/one/"));
 
-		Assert.assertTrue(n5.exists("one/two"));
-		Assert.assertTrue(n5.exists("one/two/"));
-		Assert.assertTrue(n5.exists("/one/two"));
-		Assert.assertTrue(n5.exists("/one/two/"));
+			Assert.assertTrue(n5.exists("one/two"));
+			Assert.assertTrue(n5.exists("one/two/"));
+			Assert.assertTrue(n5.exists("/one/two"));
+			Assert.assertTrue(n5.exists("/one/two/"));
 
-		Assert.assertTrue(n5.exists("one/two/three"));
-		Assert.assertTrue(n5.exists("one/two/three/"));
-		Assert.assertTrue(n5.exists("/one/two/three"));
-		Assert.assertTrue(n5.exists("/one/two/three/"));
+			Assert.assertTrue(n5.exists("one/two/three"));
+			Assert.assertTrue(n5.exists("one/two/three/"));
+			Assert.assertTrue(n5.exists("/one/two/three"));
+			Assert.assertTrue(n5.exists("/one/two/three/"));
 
-		Assert.assertFalse(n5.exists("one/tw"));
-		Assert.assertFalse(n5.exists("one/tw/"));
-		Assert.assertFalse(n5.exists("/one/tw"));
-		Assert.assertFalse(n5.exists("/one/tw/"));
+			Assert.assertFalse(n5.exists("one/tw"));
+			Assert.assertFalse(n5.exists("one/tw/"));
+			Assert.assertFalse(n5.exists("/one/tw"));
+			Assert.assertFalse(n5.exists("/one/tw/"));
 
-		Assert.assertArrayEquals(new String[]{"one"}, n5.list("/"));
-		Assert.assertArrayEquals(new String[]{"two"}, n5.list("/one"));
-		Assert.assertArrayEquals(new String[]{"three"}, n5.list("/one/two"));
+			Assert.assertArrayEquals(new String[]{"one"}, n5.list("/"));
+			Assert.assertArrayEquals(new String[]{"two"}, n5.list("/one"));
+			Assert.assertArrayEquals(new String[]{"three"}, n5.list("/one/two"));
 
-		Assert.assertArrayEquals(new String[]{}, n5.list("/one/two/three"));
-		Assert.assertThrows(N5Exception.N5IOException.class, () -> n5.list("/one/tw"));
+			Assert.assertArrayEquals(new String[]{}, n5.list("/one/two/three"));
+			Assert.assertThrows(N5Exception.N5IOException.class, () -> n5.list("/one/tw"));
 
-		Assert.assertTrue(n5.remove("/one/two/three"));
-		Assert.assertFalse(n5.exists("/one/two/three"));
-		Assert.assertTrue(n5.exists("/one/two"));
-		Assert.assertTrue(n5.exists("/one"));
+			Assert.assertTrue(n5.remove("/one/two/three"));
+			Assert.assertFalse(n5.exists("/one/two/three"));
+			Assert.assertTrue(n5.exists("/one/two"));
+			Assert.assertTrue(n5.exists("/one"));
 
-		Assert.assertTrue(n5.remove("/one"));
-		Assert.assertFalse(n5.exists("/one/two"));
-		Assert.assertFalse(n5.exists("/one"));
+			Assert.assertTrue(n5.remove("/one"));
+			Assert.assertFalse(n5.exists("/one/two"));
+			Assert.assertFalse(n5.exists("/one"));
+		}
 	}
 }

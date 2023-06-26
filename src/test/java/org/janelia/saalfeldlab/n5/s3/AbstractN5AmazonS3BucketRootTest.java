@@ -45,10 +45,4 @@ public abstract class AbstractN5AmazonS3BucketRootTest extends AbstractN5AmazonS
 	protected String tempN5Location() throws URISyntaxException {
 		return new URI("s3", tempBucketName(), "/", null).toString();
 	}
-
-	@AfterClass
-    public static void cleanup() throws IOException {
-
-        rampDownAfterClass();
-    }
 }

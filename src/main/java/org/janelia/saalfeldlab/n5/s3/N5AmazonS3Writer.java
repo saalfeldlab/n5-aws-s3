@@ -86,7 +86,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath, final boolean cacheAttributes) throws IOException {
+	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath, final boolean cacheAttributes) throws N5Exception {
 
 		this(s3, bucketName, basePath, new GsonBuilder(), cacheAttributes);
 	}
@@ -102,7 +102,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param gsonBuilder a GsonBuilder with custom configuration.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder) throws IOException {
+	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder) throws N5Exception {
 
 		this(s3, bucketName, basePath, gsonBuilder, false);
 	}
@@ -117,7 +117,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param basePath the base path relative to the bucket root
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath) throws IOException {
+	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath) throws N5Exception {
 
 		this(s3, bucketName, basePath, new GsonBuilder());
 	}
@@ -139,7 +139,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws IOException {
+	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
 
 		this(s3, bucketName, "/", gsonBuilder, cacheAttributes);
 	}
@@ -151,7 +151,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      *
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
-     * @param cacheMeta 
+     * @param cacheAttributes 
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
@@ -160,7 +160,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final boolean cacheAttributes) throws IOException {
+	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final boolean cacheAttributes) throws N5Exception {
 
 		this(s3, bucketName, "/", new GsonBuilder(), cacheAttributes);
 	}
@@ -175,7 +175,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param gsonBuilder a GsonBuilder with custom configuration.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
+	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws N5Exception {
 
 		this(s3, bucketName, "/", gsonBuilder, false);
 	}
@@ -189,7 +189,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param bucketName the bucket name
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName) throws IOException {
+	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName) throws N5Exception {
 
 		this(s3, bucketName, "/", new GsonBuilder());
 	}

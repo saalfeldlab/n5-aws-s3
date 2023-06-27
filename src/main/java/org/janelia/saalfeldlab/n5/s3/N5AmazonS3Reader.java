@@ -44,7 +44,19 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	 */
 
 	/**
-	 * TODO: javadoc
+	 * Opens an {@link N5Reader} with an {@link AmazonS3} storage backend.
+     *
+     * @param s3 the amazon s3 instance
+     * @param bucketName the bucket name
+     * @param basePath the base path relative to the bucket root
+     * @param gsonBuilder a GsonBuilder with custom configuration.
+     * @param cacheMeta 
+     *            cache attribute and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This i smost interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer will not be tracked.
 	 */
 	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws IOException {
 
@@ -59,7 +71,18 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	}
 
 	/**
-	 * TODO: javadoc
+	 * Opens an {@link N5Reader} with an {@link AmazonS3} storage backend.
+     *
+     * @param s3 the amazon s3 instance
+     * @param bucketName the bucket name
+     * @param basePath the base path relative to the bucket root
+     * @param cacheMeta 
+     *            cache attribute and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This i smost interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer will not be tracked.
 	 */
 	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath, final boolean cacheMeta) throws IOException {
 
@@ -67,7 +90,14 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	}
 
 	/**
-	 * TODO: javadoc
+	 * Opens an {@link N5Reader} with an {@link AmazonS3} storage backend.
+     * <p>
+     * Metadata are not cached.
+     *
+     * @param s3 the amazon s3 instance
+     * @param bucketName the bucket name
+     * @param basePath the base path relative to the bucket root
+     * @param gsonBuilder a GsonBuilder with custom configuration.
 	 */
 	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder) throws IOException {
 
@@ -75,7 +105,13 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	}
 
 	/**
-	 * TODO: javadoc
+	 * Opens an {@link N5Reader} with an {@link AmazonS3} storage backend.
+     * <p>
+     * Metadata are not cached.
+     *
+     * @param s3 the amazon s3 instance
+     * @param bucketName the bucket name
+     * @param basePath the base path relative to the bucket root
 	 */
 	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath) throws IOException {
 
@@ -83,7 +119,21 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	}
 
 	/**
-	 * TODO: javadoc
+	 * Opens an {@link N5Reader} with an {@link AmazonS3} storage backend.
+     * <p>
+     * The n5 container root is the bucket's root.
+     *
+     * @param s3 the amazon s3 instance
+     * @param bucketName the bucket name
+     * @param basePath the base path relative to the bucket root
+     * @param gsonBuilder a GsonBuilder with custom configuration.
+     * @param cacheMeta 
+     *            cache attribute and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This i smost interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer will not be tracked.
 	 */
 	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws IOException {
 
@@ -91,7 +141,19 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	}
 
 	/**
-	 * TODO: javadoc
+	 * Opens an {@link N5Reader} with an {@link AmazonS3} storage backend.
+     * <p>
+     * The n5 container root is the bucket's root.
+     *
+     * @param s3 the amazon s3 instance
+     * @param bucketName the bucket name
+     * @param cacheMeta 
+     *            cache attribute and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This i smost interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer will not be tracked.
 	 */
 	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final boolean cacheMeta) throws IOException {
 
@@ -99,7 +161,13 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	}
 
 	/**
-	 * TODO: javadoc
+	 * Opens an {@link N5Reader} with an {@link AmazonS3} storage backend.
+     * <p>
+     * The n5 container root is the bucket's root. Metadata are not cached.
+     *
+     * @param s3 the amazon s3 instance
+     * @param bucketName the bucket name
+     * @param gsonBuilder a GsonBuilder with custom configuration.
 	 */
 	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
 
@@ -107,13 +175,17 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	}
 
 	/**
-	 * TODO: javadoc
+	 * Opens an {@link N5Reader} with an {@link AmazonS3} storage backend.
+     * <p>
+     * The n5 container root is the bucket's root. Metadata are not cached.
+     *
+     * @param s3 the amazon s3 instance
+     * @param bucketName the bucket name
 	 */
 	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName) throws IOException {
 
 		this(s3, bucketName, "/", new GsonBuilder(), false);
 	}
-
 
 //	/**
 //	 * Determines whether the current N5 container is stored at the root level of the bucket.

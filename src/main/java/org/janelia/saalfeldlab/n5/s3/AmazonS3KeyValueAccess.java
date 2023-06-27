@@ -73,10 +73,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * If the bucket does not exist and {@code bucketName==false}, the bucket will not be
 	 * created and all subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
-	 * @param s3
-	 * @param bucketName
+	 * @param s3 the s3 instance
+	 * @param bucketName the bucket name
 	 * @param createBucket whether {@code bucketName} should be created if it doesn't exist
-	 * @throws IOException
+	 * @throws N5Exception.N5IOException if the access could not be created
 	 */
 	public AmazonS3KeyValueAccess(final AmazonS3 s3, final String bucketName, final boolean createBucket) throws N5Exception.N5IOException {
 
@@ -212,8 +212,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * This is necessary for not including wrong objects in the filtered set
 	 * (e.g. group/data-2/attributes.json when group/data is passed without the last slash).
 	 *
-	 * @param path
-	 * @return
+	 * @param path the path
+	 * @return the path with a trailing slash
 	 */
 	private static String addTrailingSlash(final String path) {
 
@@ -224,8 +224,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * When absolute paths are passed (e.g. /group/data), AWS S3 service creates an additional root folder with an empty name.
 	 * This method removes the root slash symbol and returns the corrected path.
 	 *
-	 * @param path
-	 * @return
+	 * @param path the path
+	 * @return the path without the leading slash
 	 */
 	private static String removeLeadingSlash(final String path) {
 
@@ -277,14 +277,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		return new S3ObjectChannel(removeLeadingSlash(normalPath), false);
 	}
 
-	/**
-	 * List all 'directory'-like children of a path.
-	 *
-	 * @param normalPath is expected to be in normalized form, no further
-	 * 		efforts are made to normalize it.
-	 * @return
-	 * @throws IOException
-	 */
 	@Override
 	public String[] listDirectories(final String normalPath) {
 

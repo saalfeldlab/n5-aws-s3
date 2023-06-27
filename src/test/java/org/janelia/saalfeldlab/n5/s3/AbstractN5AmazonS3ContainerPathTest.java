@@ -57,7 +57,6 @@ public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5Amaz
 	@AfterClass
 	public static void cleanup() throws IOException {
 
-		rampDownAfterClass();
 		s3.deleteBucket(bucketName);
 	}
 

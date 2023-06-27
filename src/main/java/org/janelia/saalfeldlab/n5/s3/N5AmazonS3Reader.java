@@ -30,7 +30,7 @@ package org.janelia.saalfeldlab.n5.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.google.gson.GsonBuilder;
-import java.io.IOException;
+import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5KeyValueReader;
 
@@ -57,8 +57,9 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	 *            accessing the store. This i smost interesting for high latency
 	 *            backends. Changes of cached attributes and meta data by an
 	 *            independent writer will not be tracked.
+	 * @throws N5Exception if the reader could not be created
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws N5Exception {
 
 		super(
 				new AmazonS3KeyValueAccess(s3, bucketName, false),
@@ -83,8 +84,9 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	 *            accessing the store. This i smost interesting for high latency
 	 *            backends. Changes of cached attributes and meta data by an
 	 *            independent writer will not be tracked.
+	 * @throws N5Exception if the reader could not be created
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath, final boolean cacheMeta) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath, final boolean cacheMeta) throws N5Exception {
 
 		this(s3, bucketName, basePath, new GsonBuilder(), cacheMeta);
 	}
@@ -98,8 +100,9 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
      * @param bucketName the bucket name
      * @param basePath the base path relative to the bucket root
      * @param gsonBuilder a GsonBuilder with custom configuration.
+	 * @throws N5Exception if the reader could not be created
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder) throws N5Exception {
 
 		this(s3, bucketName, basePath, gsonBuilder, false);
 	}
@@ -112,8 +115,9 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
      * @param basePath the base path relative to the bucket root
+	 * @throws N5Exception if the reader could not be created
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath) throws N5Exception {
 
 		this(s3, bucketName, basePath, new GsonBuilder(), false);
 	}
@@ -125,7 +129,6 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
      *
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
-     * @param basePath the base path relative to the bucket root
      * @param gsonBuilder a GsonBuilder with custom configuration.
      * @param cacheMeta 
      *            cache attribute and meta data
@@ -134,8 +137,9 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	 *            accessing the store. This i smost interesting for high latency
 	 *            backends. Changes of cached attributes and meta data by an
 	 *            independent writer will not be tracked.
+	 * @throws N5Exception if the reader could not be created
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws N5Exception {
 
 		this(s3, bucketName, "/", gsonBuilder, cacheMeta);
 	}
@@ -154,8 +158,9 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	 *            accessing the store. This i smost interesting for high latency
 	 *            backends. Changes of cached attributes and meta data by an
 	 *            independent writer will not be tracked.
+	 * @throws N5Exception if the reader could not be created
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final boolean cacheMeta) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final boolean cacheMeta) throws N5Exception {
 
 		this(s3, bucketName, "/", new GsonBuilder(), cacheMeta);
 	}
@@ -168,8 +173,9 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
      * @param gsonBuilder a GsonBuilder with custom configuration.
+	 * @throws N5Exception if the reader could not be created
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws N5Exception {
 
 		this(s3, bucketName, "/", gsonBuilder, false);
 	}
@@ -181,8 +187,9 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
      *
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
+	 * @throws N5Exception if the reader could not be created
 	 */
-	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName) throws IOException {
+	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName) throws N5Exception {
 
 		this(s3, bucketName, "/", new GsonBuilder(), false);
 	}

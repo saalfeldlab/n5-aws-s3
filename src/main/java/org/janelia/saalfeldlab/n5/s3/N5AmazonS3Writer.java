@@ -29,6 +29,7 @@
 package org.janelia.saalfeldlab.n5.s3;
 
 import java.io.IOException;
+import java.net.URI;
 
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.N5Exception;
@@ -192,5 +193,82 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName) throws N5Exception {
 
 		this(s3, bucketName, "/", new GsonBuilder());
+	}
+
+	/**
+	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+     *
+     * @param s3 the amazon s3 instance
+     * @param uri a uri indicating the bucket name and base path (must start with s3:
+     * @param gsonBuilder a GsonBuilder with custom configuration.
+     * @param cacheAttributes
+     *            cache attribute and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This i smost interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer will not be tracked.
+	 * @throws N5Exception if the reader could not be created
+	 */
+	public N5AmazonS3Writer(final AmazonS3 s3, final URI uri, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
+
+		super(
+				new AmazonS3KeyValueAccess(s3, uri.getAuthority(), false),
+				uri.getPath(),
+				gsonBuilder,
+				cacheAttributes);
+
+		if( !exists("/"))
+			throw new N5Exception.N5IOException("No container exists at " + uri );
+	}
+
+	/**
+	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * <p>
+     * Metadata are not cached.
+     *
+     * @param s3 the amazon s3 instance
+     * @param uri a uri indicating the bucket name and base path (must start with s3:
+     * @param gsonBuilder a GsonBuilder with custom configuration.
+	 * @throws N5Exception if the reader could not be created
+	 */
+	public N5AmazonS3Writer(final AmazonS3 s3, final URI uri, final GsonBuilder gsonBuilder ) throws N5Exception {
+
+		this( s3, uri, gsonBuilder, false );
+	}
+
+	/**
+	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * <p>
+     * The n5 container root is the bucket's root. 
+     *
+     * @param s3 the amazon s3 instance
+     * @param uri a uri indicating the bucket name and base path (must start with s3:
+     * @param cacheAttributes
+     *            cache attribute and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This i smost interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer will not be tracked.
+	 * @throws N5Exception if the reader could not be created
+	 */
+	public N5AmazonS3Writer(final AmazonS3 s3, final URI uri, final boolean cacheAttributes ) throws N5Exception {
+
+		this( s3, uri, new GsonBuilder(), cacheAttributes );
+	}
+
+	/**
+	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * <p>
+     * The n5 container root is the bucket's root. Metadata are not cached.
+     *
+     * @param s3 the amazon s3 instance
+     * @param uri a uri indicating the bucket name and base path (must start with s3:
+	 * @throws N5Exception if the reader could not be created
+	 */
+	public N5AmazonS3Writer(final AmazonS3 s3, final URI uri ) throws N5Exception {
+
+		this( s3, uri, new GsonBuilder(), false );
 	}
 }

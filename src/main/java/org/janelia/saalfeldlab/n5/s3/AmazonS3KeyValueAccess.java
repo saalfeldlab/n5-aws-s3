@@ -150,8 +150,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 	@Override
 	public URI uri(final String normalPath) throws URISyntaxException {
-
-		return new URI("s3", bucketName, normalPath, null);
+		return new URI("s3", bucketName, normalPath.startsWith("/") ? normalPath : "/" + normalPath, null);
 	}
 
 	/**

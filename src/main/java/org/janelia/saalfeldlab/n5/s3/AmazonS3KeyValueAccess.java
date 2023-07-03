@@ -199,11 +199,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				.withPrefix(key)
 				.withMaxKeys(1);
 		final ListObjectsV2Result objectsListing = s3.listObjectsV2(listObjectsRequest);
-		if (objectsListing.getKeyCount() > 0) {
-			final String k = objectsListing.getObjectSummaries().get(0).getKey();
-			return k.length() == key.length();
-		}
-		return false;
+		return objectsListing.getKeyCount() > 0;
 	}
 
 	/**

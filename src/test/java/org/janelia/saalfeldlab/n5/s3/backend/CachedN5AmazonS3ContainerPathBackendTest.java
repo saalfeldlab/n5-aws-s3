@@ -54,7 +54,8 @@ public class CachedN5AmazonS3ContainerPathBackendTest extends AbstractN5AmazonS3
 
 		final URI uri = new URI(location);
 		final String bucketName = uri.getHost();
-		return new N5AmazonS3DelayedWriter(s3, bucketName, gson, true) {
+		final String basePath = uri.getPath();
+		return new N5AmazonS3DelayedWriter(s3, bucketName, basePath, gson, true) {
 
 			@Override public void close() {
 

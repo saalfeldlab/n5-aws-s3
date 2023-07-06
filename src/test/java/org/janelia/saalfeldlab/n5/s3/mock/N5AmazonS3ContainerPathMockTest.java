@@ -29,6 +29,7 @@
 package org.janelia.saalfeldlab.n5.s3.mock;
 
 import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3ContainerPathTest;
+
 /**
  * Initiates testing of the Amazon Web Services S3-based N5 implementation using S3 mock library.
  * A non-trivial container path is used to create the test N5 container in the temporary bucket.
@@ -37,8 +38,8 @@ import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3ContainerPathTest;
  */
 public class N5AmazonS3ContainerPathMockTest extends AbstractN5AmazonS3ContainerPathTest {
 
-    public N5AmazonS3ContainerPathMockTest() {
+	public N5AmazonS3ContainerPathMockTest() {
 
-        super(MockS3Factory.getOrCreateS3());
-    }
+		super(MockS3Factory.getOrCreateS3());
+	}
 }

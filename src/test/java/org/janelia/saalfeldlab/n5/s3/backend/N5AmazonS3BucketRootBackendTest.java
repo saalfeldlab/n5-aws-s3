@@ -28,8 +28,11 @@
  */
 package org.janelia.saalfeldlab.n5.s3.backend;
 
+import com.google.gson.GsonBuilder;
 import java.io.IOException;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3BucketRootTest;
 
@@ -46,10 +49,14 @@ public class N5AmazonS3BucketRootBackendTest extends AbstractN5AmazonS3BucketRoo
         super(BackendS3Factory.getOrCreateS3());
     }
 
-    @Override
-    protected N5Writer createN5Writer() throws IOException {
+	@Override
+	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
 
-        N5AmazonS3DelayedWriter.sleep();
-        return new N5AmazonS3DelayedWriter(s3, testBucketName);
-    }
+		final URI uri = new URI(location);
+		final String bucketName = uri.getHost();
+
+		N5AmazonS3DelayedWriter.sleep();
+		return new N5AmazonS3DelayedWriter(s3, bucketName, gson, false);
+	}
+
 }

@@ -28,36 +28,36 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import java.io.IOException;
-
-import org.janelia.saalfeldlab.n5.N5Writer;
-import org.junit.AfterClass;
-import org.junit.Assert;
-
 import com.amazonaws.services.s3.AmazonS3;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 
 public abstract class AbstractN5AmazonS3ContainerPathTest extends AbstractN5AmazonS3Test {
 
-    protected static String testContainerPath = "/test/container/";
+    protected static String bucketName;
 
-    public AbstractN5AmazonS3ContainerPathTest(final AmazonS3 s3) {
+	public AbstractN5AmazonS3ContainerPathTest(final AmazonS3 s3) {
 
         super(s3);
     }
 
-    @Override
-    protected N5Writer createN5Writer() throws IOException {
+	@BeforeClass
+	public static void setup() throws IOException, URISyntaxException {
+		bucketName = tempBucketName();
+	}
 
-        return new N5AmazonS3Writer(s3, testBucketName, testContainerPath);
-    }
+	@Override
+	protected String tempN5Location() throws URISyntaxException {
+		return new URI("s3", bucketName, tempContainerPath(), null).toString();
+	}
 
-    @AfterClass
-    public static void cleanup() throws IOException {
+	@AfterClass
+	public static void cleanup() throws IOException {
 
-        rampDownAfterClass();
-        Assert.assertTrue(s3.doesBucketExistV2(testBucketName));
-        Assert.assertFalse(s3.doesObjectExist(testBucketName, "test/"));
-        new N5AmazonS3Writer(s3, testBucketName).remove();
-        Assert.assertFalse(s3.doesBucketExistV2(testBucketName));
-    }
+		s3.deleteBucket(bucketName);
+	}
+
 }

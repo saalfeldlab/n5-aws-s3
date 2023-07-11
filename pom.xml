@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>32.0.0</version>
+		<version>34.0.0</version>
 		<relativePath />
 	</parent>
 
@@ -117,6 +117,7 @@
 
 		<s3mock_2.12.version>0.2.5</s3mock_2.12.version>
 		<jaxb-api.version>2.2.2</jaxb-api.version>
+		<n5.version>3.0.0-SNAPSHOT</n5.version>
 	</properties>
 
 	<dependencies>
@@ -149,7 +150,6 @@
 		<dependency>
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5</artifactId>
-			<version>${n5.version}</version>
 			<classifier>tests</classifier>
 			<scope>test</scope>
 		</dependency>
@@ -178,6 +178,8 @@
 						<excludes>
 							<exclude>org.janelia.saalfeldlab.n5.s3.backend.N5AmazonS3BucketRootBackendTest</exclude>
 							<exclude>org.janelia.saalfeldlab.n5.s3.backend.N5AmazonS3ContainerPathBackendTest</exclude>
+							<exclude>org.janelia.saalfeldlab.n5.s3.backend.CachedN5AmazonS3BucketRootBackendTest</exclude>
+							<exclude>org.janelia.saalfeldlab.n5.s3.backend.CachedN5AmazonS3ContainerPathBackendTest</exclude>
 						</excludes>
 					</configuration>
 				</plugin>

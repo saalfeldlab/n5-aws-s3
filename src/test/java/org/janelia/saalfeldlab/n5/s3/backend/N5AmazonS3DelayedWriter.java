@@ -42,87 +42,103 @@ import com.google.gson.GsonBuilder;
 /**
  * Helper class for dealing with eventual consistency of S3 store.
  *
- * S3 store has a concept of eventual consistency: for example, when an object is requested after it has been overwritten,
- * it may still return the old version of the object, but eventually it will return the updated version.
+ * S3 store has a concept of eventual consistency: for example, when an object
+ * is requested after it has been overwritten,
+ * it may still return the old version of the object, but eventually it will
+ * return the updated version.
  *
- * The tests in {@link AbstractN5Test} write and then immediately read attributes and data blocks to verify them.
- * Eventual consistency makes some of these tests fail. To solve or at least minimize this effect,
+ * The tests in {@link AbstractN5Test} write and then immediately read
+ * attributes and data blocks to verify them.
+ * Eventual consistency makes some of these tests fail. To solve or at least
+ * minimize this effect,
  * this class adds a 1s delay after each modification request.
  *
- * @see <a href="https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel">https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel</a>
+ * @see <a href=
+ *      "https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel">https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel</a>
  */
 class N5AmazonS3DelayedWriter extends N5AmazonS3Writer {
 
-    private static final long delayMsec = 1000;
+	private static final long delayMsec = 1000;
 
-    public N5AmazonS3DelayedWriter(final AmazonS3 s3, final String bucketName) throws IOException {
+	public N5AmazonS3DelayedWriter(
+			final AmazonS3 s3,
+			final String bucketName,
+			final GsonBuilder gson,
+			final boolean cacheAttributes)
+			throws IOException {
 
-        super(s3, bucketName, new GsonBuilder());
-        sleep();
-    }
+		super(s3, bucketName, gson, cacheAttributes);
+		sleep();
+	}
 
-    public N5AmazonS3DelayedWriter(final AmazonS3 s3, final String bucketName, final String containerPath) throws IOException {
+	public N5AmazonS3DelayedWriter(
+			final AmazonS3 s3,
+			final String bucketName,
+			final String basePath,
+			final GsonBuilder gson,
+			final boolean cacheAttributes)
+			throws IOException {
 
-        super(s3, bucketName, containerPath, new GsonBuilder());
-        sleep();
-    }
+		super(s3, bucketName, basePath, gson, cacheAttributes);
+		sleep();
+	}
 
-    @Override
-    public void createGroup(final String pathName) throws IOException {
+	@Override
+	public void createGroup(final String pathName) {
 
-        super.createGroup(pathName);
-        sleep();
-    }
+		super.createGroup(pathName);
+		sleep();
+	}
 
-    @Override
-    public void setAttributes(
-            final String pathName,
-            final Map<String, ?> attributes) throws IOException {
+	@Override
+	public void setAttributes(
+			final String pathName,
+			final Map<String, ?> attributes) {
 
-        super.setAttributes(pathName, attributes);
-        sleep();
-    }
+		super.setAttributes(pathName, attributes);
+		sleep();
+	}
 
-    @Override
-    public <T> void writeBlock(
-            final String pathName,
-            final DatasetAttributes datasetAttributes,
-            final DataBlock<T> dataBlock) throws IOException {
+	@Override
+	public <T> void writeBlock(
+			final String pathName,
+			final DatasetAttributes datasetAttributes,
+			final DataBlock<T> dataBlock) {
 
-        super.writeBlock(pathName, datasetAttributes, dataBlock);
-        sleep();
-    }
+		super.writeBlock(pathName, datasetAttributes, dataBlock);
+		sleep();
+	}
 
-    @Override
-    public boolean deleteBlock(final String pathName, final long[] gridPosition) {
+	@Override
+	public boolean deleteBlock(final String pathName, final long... gridPosition) {
 
-        final boolean ret = super.deleteBlock(pathName, gridPosition);
-        sleep();
-        return ret;
-    }
+		final boolean ret = super.deleteBlock(pathName, gridPosition);
+		sleep();
+		return ret;
+	}
 
-    @Override
-    public boolean remove() throws IOException {
+	@Override
+	public boolean remove() {
 
-        final boolean ret = super.remove();
-        sleep();
-        return ret;
-    }
+		final boolean ret = super.remove();
+		sleep();
+		return ret;
+	}
 
-    @Override
-    public boolean remove(final String pathName) throws IOException {
+	@Override
+	public boolean remove(final String pathName) {
 
-        final boolean ret = super.remove(pathName);
-        sleep();
-        return ret;
-    }
+		final boolean ret = super.remove(pathName);
+		sleep();
+		return ret;
+	}
 
-    static void sleep() {
+	static void sleep() {
 
-        try {
-            Thread.sleep(delayMsec);
-        } catch (final InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
+		try {
+			Thread.sleep(delayMsec);
+		} catch (final InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
 }

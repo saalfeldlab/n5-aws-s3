@@ -29,22 +29,22 @@
 package org.janelia.saalfeldlab.n5.s3.backend;
 
 import com.google.gson.GsonBuilder;
-import java.io.IOException;
+import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3BucketRootTest;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import org.janelia.saalfeldlab.n5.N5Writer;
-import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3ContainerPathTest;
 
 /**
  * Initiates testing of the Amazon Web Services S3-based N5 implementation using actual S3 backend.
- * A non-trivial container path is used to create the test N5 container in the temporary bucket.
+ * The test N5 container is created at the root of the new temporary bucket.
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
-public class N5AmazonS3ContainerPathBackendTest extends AbstractN5AmazonS3ContainerPathTest {
+public class CachedN5AmazonS3BucketRootBackendTest extends AbstractN5AmazonS3BucketRootTest {
 
-    public N5AmazonS3ContainerPathBackendTest() {
+    public CachedN5AmazonS3BucketRootBackendTest() {
 
         super(BackendS3Factory.getOrCreateS3());
     }
@@ -54,8 +54,17 @@ public class N5AmazonS3ContainerPathBackendTest extends AbstractN5AmazonS3Contai
 
 		final URI uri = new URI(location);
 		final String bucketName = uri.getHost();
-		final String basePath = uri.getPath();
-		return new N5AmazonS3DelayedWriter(s3, bucketName, basePath, gson, false);
+
+		N5AmazonS3DelayedWriter.sleep();
+		return new N5AmazonS3DelayedWriter(s3, bucketName, gson, true) {
+
+			@Override public void close() {
+
+				remove();
+				super.close();
+			}
+
+		};
 	}
 
 }

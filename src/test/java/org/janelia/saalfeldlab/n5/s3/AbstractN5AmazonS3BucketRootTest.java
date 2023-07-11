@@ -28,13 +28,11 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import java.io.IOException;
-
-import org.janelia.saalfeldlab.n5.N5Writer;
-import org.junit.AfterClass;
-import org.junit.Assert;
-
 import com.amazonaws.services.s3.AmazonS3;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import org.junit.AfterClass;
 
 public abstract class AbstractN5AmazonS3BucketRootTest extends AbstractN5AmazonS3Test {
 
@@ -43,16 +41,8 @@ public abstract class AbstractN5AmazonS3BucketRootTest extends AbstractN5AmazonS
         super(s3);
     }
 
-    @Override
-    protected N5Writer createN5Writer() throws IOException {
-
-        return new N5AmazonS3Writer(s3, testBucketName);
-    }
-
-    @AfterClass
-    public static void cleanup() throws IOException {
-
-        rampDownAfterClass();
-        Assert.assertFalse(s3.doesBucketExistV2(testBucketName));
-    }
+	@Override
+	protected String tempN5Location() throws URISyntaxException {
+		return new URI("s3", tempBucketName(), "/", null).toString();
+	}
 }

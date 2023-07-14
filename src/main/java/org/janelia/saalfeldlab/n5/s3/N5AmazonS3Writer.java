@@ -57,7 +57,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
-	 *            accessing the store. This i smost interesting for high latency
+	 *            accessing the store. This is most interesting for high latency
 	 *            backends. Changes of cached attributes and meta data by an
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created
@@ -81,7 +81,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
-	 *            accessing the store. This i smost interesting for high latency
+	 *            accessing the store. This is most interesting for high latency
 	 *            backends. Changes of cached attributes and meta data by an
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created
@@ -134,7 +134,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
-	 *            accessing the store. This i smost interesting for high latency
+	 *            accessing the store. This is most interesting for high latency
 	 *            backends. Changes of cached attributes and meta data by an
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created
@@ -155,7 +155,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
-	 *            accessing the store. This i smost interesting for high latency
+	 *            accessing the store. This is most interesting for high latency
 	 *            backends. Changes of cached attributes and meta data by an
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created

@@ -93,7 +93,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				}
 				s3.createBucket(new CreateBucketRequest(bucketName, region));
 			} else {
-				throw new N5Exception.N5IOException("Bucket " + bucketName + " does not exist.");
+				throw new N5Exception.N5IOException(
+						"Bucket " + bucketName + " does not exist, and you told me not to create one.");
 			}
 		}
 	}

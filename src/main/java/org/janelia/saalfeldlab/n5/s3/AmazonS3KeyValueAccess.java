@@ -37,19 +37,24 @@ import java.io.Reader;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5URI;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
@@ -59,9 +64,10 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Region;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import org.janelia.saalfeldlab.n5.N5URI;
 
 public class AmazonS3KeyValueAccess implements KeyValueAccess {
+
+	private static final Pattern AWS_ENDPOINT_PATTERN = Pattern.compile("^(.+\\.)?(s3\\..*amazonaws\\.com)");
 
 	private final AmazonS3 s3;
 	private final String bucketName;
@@ -118,6 +124,29 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				.filter(x -> !x.isEmpty())
 				.collect(Collectors.joining("/"))
 		);
+
+	}
+
+	/**
+	 * Compose a path from a base uri and subsequent components.
+	 *
+	 * @param uri the base path uri
+	 * @param components the path components
+	 * @return the path
+	 */
+	@Override
+	public String compose(final URI uri, final String... components) {
+
+		final String[] uriComponents = new String[components.length + 1];
+		System.arraycopy(components, 0, uriComponents, 1, components.length);
+		if ("s3".equalsIgnoreCase(uri.getScheme())) {
+			// when using the s3 scheme, the bucket name is the "host", and the group is the "path"
+			uriComponents[0] = uri.getPath();
+		} else {
+			// when using the http(s) scheme, need to do more checks, getS3Key does them
+			uriComponents[0] = getS3Key(uri.toString());
+		}
+		return compose(uriComponents);
 	}
 
 	@Override
@@ -138,7 +167,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			* 	case, since we only care about the relative portion of `path` to `base`, so the result always
 			* 	ignores the absolute prefix anyway. */
 			return normalize(uri("/" + base).relativize(uri("/" + path)).getPath());
-		} catch (URISyntaxException e) {
+		} catch (final URISyntaxException e) {
 			throw new N5Exception("Cannot relativize path (" + path +") with base (" + base + ")", e);
 		}
 	}
@@ -151,9 +180,44 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 	@Override
 	public URI uri(final String normalPath) throws URISyntaxException {
-		return N5URI.from(
-				"s3://" + bucketName + (normalPath.startsWith("/") ? normalPath : "/" + normalPath), null, null)
-				.getURI();
+		final URL url = s3.getUrl(bucketName, normalPath);
+		final Matcher matcher = AWS_ENDPOINT_PATTERN.matcher(url.toString());
+		if( matcher.find() )
+			return N5URI.from(
+					"s3://" + bucketName + (normalPath.startsWith("/") ? normalPath : "/" + normalPath), null, null)
+					.getURI();
+		else
+		{
+			final URI uri = url.toURI();
+			return url.toURI();
+		}
+	}
+
+	private String getS3Bucket(final String uri) {
+
+		try {
+			return new AmazonS3URI(uri).getBucket();
+		} catch (final IllegalArgumentException e) {}
+		try {
+			// parse bucket manually when AmazonS3URI can't
+			final String path = new URI(uri).getPath().replaceFirst("^/", "");
+			return path.substring(0, path.indexOf('/'));
+		} catch (final URISyntaxException e) {
+		}
+		return null;
+	}
+
+	private String getS3Key(final String uri) {
+
+		try {
+			return new AmazonS3URI(uri).getKey();
+		} catch (final IllegalArgumentException e) {}
+		try {
+			// parse key manually when AmazonS3URI can't
+			final String path = new URI(uri).getPath().replaceFirst("^/", "");
+			return path.substring(path.indexOf('/') + 1);
+		} catch (final URISyntaxException e) {}
+		return null;
 	}
 
 	/**

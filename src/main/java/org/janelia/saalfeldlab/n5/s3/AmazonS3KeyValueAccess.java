@@ -166,7 +166,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			* 	It's not true that the inputs are always referencing absolute paths, but it doesn't matter in this
 			* 	case, since we only care about the relative portion of `path` to `base`, so the result always
 			* 	ignores the absolute prefix anyway. */
-			return normalize(uri("/" + base).relativize(uri("/" + path)).getPath());
+			return getS3Key(normalize(uri(base).relativize(uri(path)).toString()));
 		} catch (final URISyntaxException e) {
 			throw new N5Exception("Cannot relativize path (" + path +") with base (" + base + ")", e);
 		}
@@ -188,7 +188,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 					.getURI();
 		else
 		{
-			final URI uri = url.toURI();
 			return url.toURI();
 		}
 	}

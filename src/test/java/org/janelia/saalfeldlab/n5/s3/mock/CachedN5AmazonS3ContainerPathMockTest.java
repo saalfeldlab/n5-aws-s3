@@ -28,14 +28,14 @@
  */
 package org.janelia.saalfeldlab.n5.s3.mock;
 
-import com.google.gson.GsonBuilder;
+import java.io.IOException;
+import java.net.URISyntaxException;
+
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3ContainerPathTest;
 import org.janelia.saalfeldlab.n5.s3.N5AmazonS3Writer;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
+import com.google.gson.GsonBuilder;
 
 /**
  * Initiates testing of the Amazon Web Services S3-based N5 implementation using S3 mock library.
@@ -53,9 +53,8 @@ public class CachedN5AmazonS3ContainerPathMockTest extends AbstractN5AmazonS3Con
 	@Override
 	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
 
-		final URI uri = new URI(location);
-		final String bucketName = uri.getHost();
-		final String basePath = uri.getPath();
+		final String bucketName = getS3Bucket(location);
+		final String basePath = getS3Key(location);
 		return new N5AmazonS3Writer(s3, bucketName, basePath, gson, true);
 	}
 }

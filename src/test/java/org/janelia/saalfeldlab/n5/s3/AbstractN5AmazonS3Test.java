@@ -28,8 +28,11 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.google.gson.GsonBuilder;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.SecureRandom;
+
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Reader;
@@ -37,10 +40,9 @@ import org.janelia.saalfeldlab.n5.N5Writer;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.security.SecureRandom;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3URI;
+import com.google.gson.GsonBuilder;
 
 /**
  * Base class for testing Amazon Web Services N5 implementation.
@@ -59,7 +61,7 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 
 	private static final SecureRandom random = new SecureRandom();
 
-	private static String generateName(String prefix, String suffix) {
+	private static String generateName(final String prefix, final String suffix) {
 
 		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
 	}
@@ -76,9 +78,9 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 
 	@Override protected N5Writer createN5Writer() throws IOException, URISyntaxException {
 
-		final URI uri = new URI(tempN5Location());
-		final String bucketName = uri.getHost();
-		final String basePath = uri.getPath();
+		final String location = tempN5Location();
+		final String bucketName = getS3Bucket( location );
+		final String basePath = getS3Key(location);
 		return new N5AmazonS3Writer(s3, bucketName, basePath, new GsonBuilder()) {
 
 			@Override public void close() {
@@ -92,19 +94,44 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 	@Override
 	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
 
-		final URI uri = new URI(location);
-		final String bucketName = uri.getHost();
-		final String basePath = uri.getPath();
+		final String bucketName = getS3Bucket(location);
+		final String basePath = getS3Key(location);
 		return new N5AmazonS3Writer(s3, bucketName, basePath, gson);
 	}
 
 	@Override
 	protected N5Reader createN5Reader(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
 
-		final URI uri = new URI(location);
-		final String bucketName = uri.getHost();
-		final String basePath = uri.getPath();
+		final String bucketName = getS3Bucket(location);
+		final String basePath = getS3Key(location);
 		return new N5AmazonS3Reader(s3, bucketName, basePath, gson);
+	}
+
+	protected String getS3Bucket(final String uri) {
+
+		try {
+			return new AmazonS3URI(uri).getBucket();
+		} catch (final IllegalArgumentException e) {}
+		try {
+			// parse bucket manually when AmazonS3URI can't
+			final String path = new URI(uri).getPath().replaceFirst("^/", "");
+			return path.substring(0, path.indexOf('/'));
+		} catch (final URISyntaxException e) {
+		}
+		return null;
+	}
+
+	protected String getS3Key(final String uri) {
+
+		try {
+			return new AmazonS3URI(uri).getKey();
+		} catch (final IllegalArgumentException e) {}
+		try {
+			// parse key manually when AmazonS3URI can't
+			final String path = new URI(uri).getPath().replaceFirst("^/", "");
+			return path.substring(path.indexOf('/') + 1);
+		} catch (final URISyntaxException e) {}
+		return "";
 	}
 
 	/**

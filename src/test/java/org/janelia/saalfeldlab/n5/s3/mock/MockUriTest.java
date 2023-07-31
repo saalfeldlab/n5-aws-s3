@@ -19,8 +19,8 @@ public class MockUriTest {
 		final String bucket = "zarr-n5-demo";
 		String path = "";
 
-		final AmazonS3KeyValueAccess kv = new AmazonS3KeyValueAccess(s3, bucket, false);
 		s3.createBucket(bucket);
+		final AmazonS3KeyValueAccess kv = new AmazonS3KeyValueAccess(s3, bucket, false);
 
 		assertTrue(kv.uri(path).toString().startsWith("http://localhost:8001/" + bucket + "/" + path));
 

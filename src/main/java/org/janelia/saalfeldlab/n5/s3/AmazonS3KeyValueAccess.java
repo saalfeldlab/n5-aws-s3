@@ -180,14 +180,14 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 	@Override
 	public URI uri(final String normalPath) throws URISyntaxException {
+
 		final URL url = s3.getUrl(bucketName, normalPath);
 		final Matcher matcher = AWS_ENDPOINT_PATTERN.matcher(url.toString());
 		if( matcher.find() )
 			return N5URI.from(
 					"s3://" + bucketName + (normalPath.startsWith("/") ? normalPath : "/" + normalPath), null, null)
 					.getURI();
-		else
-		{
+		else {
 			return url.toURI();
 		}
 	}
@@ -209,7 +209,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	private String getS3Key(final String uri) {
 
 		try {
-			return new AmazonS3URI(uri).getKey();
+			// if key is null, return the empty string
+			final String key = new AmazonS3URI(uri).getKey();
+			return key == null ? "" : key;
 		} catch (final IllegalArgumentException e) {}
 		try {
 			// parse key manually when AmazonS3URI can't

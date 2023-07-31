@@ -124,7 +124,9 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 	protected String getS3Key(final String uri) {
 
 		try {
-			return new AmazonS3URI(uri).getKey();
+			// if key is null, return the empty string
+			final String key = new AmazonS3URI(uri).getKey();
+			return key == null ? "" : key;
 		} catch (final IllegalArgumentException e) {}
 		try {
 			// parse key manually when AmazonS3URI can't

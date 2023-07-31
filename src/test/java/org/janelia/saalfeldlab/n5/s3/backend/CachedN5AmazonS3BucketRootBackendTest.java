@@ -28,13 +28,13 @@
  */
 package org.janelia.saalfeldlab.n5.s3.backend;
 
-import com.google.gson.GsonBuilder;
+import java.io.IOException;
+import java.net.URISyntaxException;
+
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.s3.AbstractN5AmazonS3BucketRootTest;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
+import com.google.gson.GsonBuilder;
 
 /**
  * Initiates testing of the Amazon Web Services S3-based N5 implementation using actual S3 backend.
@@ -52,9 +52,7 @@ public class CachedN5AmazonS3BucketRootBackendTest extends AbstractN5AmazonS3Buc
 	@Override
 	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
 
-		final URI uri = new URI(location);
-		final String bucketName = uri.getHost();
-
+		final String bucketName = getS3Bucket(location);
 		N5AmazonS3DelayedWriter.sleep();
 		return new N5AmazonS3DelayedWriter(s3, bucketName, gson, true) {
 

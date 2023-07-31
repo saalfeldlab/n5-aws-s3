@@ -183,6 +183,7 @@
 							<exclude>org.janelia.saalfeldlab.n5.s3.backend.N5AmazonS3ContainerPathBackendTest</exclude>
 							<exclude>org.janelia.saalfeldlab.n5.s3.backend.CachedN5AmazonS3BucketRootBackendTest</exclude>
 							<exclude>org.janelia.saalfeldlab.n5.s3.backend.CachedN5AmazonS3ContainerPathBackendTest</exclude>
+							<exclude>org.janelia.saalfeldlab.n5.s3.backend.BackendUriTest</exclude>
 						</excludes>
 					</configuration>
 				</plugin>

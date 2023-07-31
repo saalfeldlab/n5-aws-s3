@@ -67,7 +67,7 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 
 public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
-	private static final Pattern AWS_ENDPOINT_PATTERN = Pattern.compile("^(.+\\.)?(s3\\..*amazonaws\\.com)");
+	private static final Pattern AWS_ENDPOINT_PATTERN = Pattern.compile("^(.+\\.)?(s3\\..*amazonaws\\.com)$");
 
 	private final AmazonS3 s3;
 	private final String bucketName;
@@ -182,7 +182,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public URI uri(final String normalPath) throws URISyntaxException {
 
 		final URL url = s3.getUrl(bucketName, normalize(normalPath));
-		final Matcher matcher = AWS_ENDPOINT_PATTERN.matcher(url.toString());
+		final Matcher matcher = AWS_ENDPOINT_PATTERN.matcher(url.getHost());
 		if( matcher.find() )
 			return N5URI.from(
 					"s3://" + bucketName + (normalPath.startsWith("/") ? normalPath : "/" + normalPath), null, null)

@@ -75,8 +75,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	/**
 	 * Opens an {@link AmazonS3KeyValueAccess} using an {@link AmazonS3} client and a given bucket name.
 	 *
-	 * If the bucket does not exist and {@code bucketName==true}, the bucket will be created.
-	 * If the bucket does not exist and {@code bucketName==false}, the bucket will not be
+	 * If the bucket does not exist and {@code createBucket==true}, the bucket will be created.
+	 * If the bucket does not exist and {@code createBucket==false}, the bucket will not be
 	 * created and all subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
 	 * @param s3 the s3 instance

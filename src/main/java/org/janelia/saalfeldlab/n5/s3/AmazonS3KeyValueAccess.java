@@ -57,6 +57,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectListing;
@@ -64,6 +65,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Region;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.amazonaws.services.s3.waiters.HeadObjectFunction;
 
 public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
@@ -255,6 +257,16 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				: null;
 	}
 
+	private ListObjectsV2Result queryPrefix(final String prefix) {
+
+		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
+				.withBucketName(bucketName)
+				.withPrefix(prefix)
+				.withMaxKeys(1);
+
+		return s3.listObjectsV2(listObjectsRequest);
+	}
+
 	/**
 	 * Check existence of the given {@code key}.
 	 *
@@ -262,11 +274,30 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 */
 	private boolean keyExists(final String key) {
 
-		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
-				.withBucketName(bucketName)
-				.withPrefix(key)
-				.withMaxKeys(1);
-		final ListObjectsV2Result objectsListing = s3.listObjectsV2(listObjectsRequest);
+		/* In very preliminary tests, it appears that the obj listing request with one key max
+		 * returns the correct key, but I'm not confident we can count on that in general.
+		 * HeadObjectFunction (found by Caleb) is probably preferable for that reason. -John
+		 */
+		// final ListObjectsV2Result objectsListing = queryPrefix(key);
+		// return objectsListing.getKeyCount() > 0 &&
+		// objectsListing.getObjectSummaries().get(0).getKey().equals(key);
+
+		try {
+			final ObjectMetadata objMeta = new HeadObjectFunction(s3).apply(new GetObjectMetadataRequest(bucketName, key));
+			return objMeta != null;
+		} catch (Exception e) {}
+
+		return false;
+	}
+
+	/**
+	 * Check existence of the given {@code prefix}.
+	 *
+	 * @return {@code true} if {@code prefix} exists.
+	 */
+	private boolean prefixExists(final String prefix) {
+
+		final ListObjectsV2Result objectsListing = queryPrefix(prefix);
 		return objectsListing.getKeyCount() > 0;
 	}
 
@@ -309,7 +340,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public boolean isDirectory(final String normalPath) {
 
 		final String key = removeLeadingSlash(addTrailingSlash(normalPath));
-		return key.isEmpty() || keyExists(key);
+		return key.isEmpty() || prefixExists(key);
 	}
 
 	/**

@@ -609,7 +609,11 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		public OutputStream newOutputStream() throws IOException {
 
 			checkWritable();
-			return new S3OutputStream();
+			final S3OutputStream s3Out = new S3OutputStream();
+			synchronized (resources) {
+				resources.add(s3Out);
+			}
+			return s3Out;
 		}
 
 		@Override

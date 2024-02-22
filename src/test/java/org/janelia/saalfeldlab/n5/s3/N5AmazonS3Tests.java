@@ -32,17 +32,31 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.s3.backend.BackendS3Factory;
+import org.janelia.saalfeldlab.n5.s3.mock.MockS3Factory;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3URI;
 import com.google.gson.GsonBuilder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
+import static org.junit.Assume.assumeThat;
+import static org.junit.Assume.assumeTrue;
 
 /**
  * Base class for testing Amazon Web Services N5 implementation.
@@ -50,38 +64,139 @@ import com.google.gson.GsonBuilder;
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
-public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
+@RunWith(Parameterized.class)
+@Parameterized.UseParametersRunnerFactory(IgnoreTestCasesByParameter.class)
+@IgnoreTestCasesByParameter.IgnoreParameter()
+public class N5AmazonS3Tests extends AbstractN5Test {
 
-	protected static AmazonS3 s3;
+	private static boolean skipBackendIfNotEnabled(final boolean isBackendTest) {
 
-	public AbstractN5AmazonS3Test(final AmazonS3 s3) {
-
-		AbstractN5AmazonS3Test.s3 = s3;
+		return isBackendTest && !"true".equals(System.getProperty("run-backend-test"));
 	}
 
+	@Parameterized.Parameters(name = "{0}")
+	public static Collection<Object[]> data() {
+
+		return Arrays.asList(new Object[][]{
+		{"mock s3 , container at generated path" 						, null , false , false , skipBackendIfNotEnabled(false)},
+		{"mock s3 , container at generated path , cache attributes" 	, null , true  , false , skipBackendIfNotEnabled(false)},
+		{"mock s3 , container at root"           						, "/"  , false , false , skipBackendIfNotEnabled(false)},
+		{"mock s3 , container at root with , cache attributes" 			, "/"  , true  , false , skipBackendIfNotEnabled(false)},
+		{"backend s3 , container at generated path" 					, null , false , true  , skipBackendIfNotEnabled(true)},
+		{"backend s3 , container at generated path , cache attributes" 	, null , true  , true  , skipBackendIfNotEnabled(true)},
+		{"backend s3 , container at root"           					, "/"  , false , true  , skipBackendIfNotEnabled(true)},
+		{"backend s3 , container at root with , cache attributes" 		, "/"  , true  , true  , skipBackendIfNotEnabled(true)}
+		});
+	}
+
+	private static int DOESNT_EXISTS_S3_CODE = 404;
+	protected static HashMap<AmazonS3, ArrayList<String>> s3Buckets = new HashMap<>();
 	private static final SecureRandom random = new SecureRandom();
+
+	@Parameterized.Parameter(0)
+	public String name;
+
+	@Parameterized.Parameter(1)
+	public String tempPath;
+
+	@Parameterized.Parameter(2)
+	public boolean useCache;
+
+	@Parameterized.Parameter(3)
+	public boolean useBackend;
+
+	/* This is used to skip backend tests when they are not enabled.
+	* Handled in the RunnerFactory, but instance field for the parameter is still required */
+	@Parameterized.Parameter(4)
+	public boolean skipTests;
 
 	private static String generateName(final String prefix, final String suffix) {
 
 		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
 	}
 
-	protected static String tempBucketName() {
+	public static String tempBucketName(final AmazonS3 s3) {
 
-		return generateName("n5-test-", "-bucket");
+		final String bucket = generateName("n5-test-", "-bucket");
+		final ArrayList<String> s3Resources = s3Buckets.getOrDefault(s3, new ArrayList<>());
+		s3Resources.add(bucket);
+		s3Buckets.putIfAbsent(s3, s3Resources);
+		return bucket;
 	}
 
-	protected static String tempContainerPath() {
+	public static String tempContainerPath() {
 
 		return generateName("/n5-test-", ".n5");
 	}
 
-	@Override protected N5Writer createN5Writer() throws IOException, URISyntaxException {
+	@AfterClass
+	public static void cleanup() {
+
+		synchronized (s3Buckets) {
+			for (Map.Entry<AmazonS3, ArrayList<String>> s3Buckets : s3Buckets.entrySet()) {
+				final AmazonS3 s3 = s3Buckets.getKey();
+				final ArrayList<String> buckets = s3Buckets.getValue();
+				for (String bucket : buckets) {
+					try {
+						if (s3.doesBucketExistV2(bucket))
+							s3.deleteBucket(bucket);
+					} catch (AmazonS3Exception e) {
+						if (e.getStatusCode() != DOESNT_EXISTS_S3_CODE)
+							throw e;
+					}
+				}
+			}
+			s3Buckets.clear();
+		}
+	}
+
+	protected AmazonS3 getS3() {
+
+		if (useBackend)
+			return BackendS3Factory.getOrCreateS3();
+		else
+			return MockS3Factory.getOrCreateS3();
+	}
+
+	@Override
+	protected String tempN5Location() throws URISyntaxException {
+
+		final String containerPath;
+		if (tempPath != null)
+			containerPath = tempPath;
+		else
+			containerPath = tempContainerPath();
+		return new URI("s3", tempBucketName(getS3()), containerPath, null).toString();
+	}
+
+	@Override protected N5Writer createN5Writer() throws URISyntaxException {
 
 		final String location = tempN5Location();
-		final String bucketName = getS3Bucket( location );
+		final String bucketName = getS3Bucket(location);
 		final String basePath = getS3Key(location);
-		return new N5AmazonS3Writer(s3, bucketName, basePath, new GsonBuilder()) {
+		return new N5AmazonS3Writer(getS3(), bucketName, basePath, new GsonBuilder(), useCache) {
+
+			{
+				if (useBackend) {
+					/* Creating a bucket on S3 only provides a guarantee of eventual consistency. To
+					 * ensure the bucket is created before testing, we wait to ensure it's visible before continuing.
+					 * https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel */
+					int timeoutMs = 5 * 1000;
+					while (timeoutMs > 0) {
+						if (getS3().doesBucketExistV2(bucketName))
+							break;
+						else
+							try {
+								Thread.sleep(100);
+								timeoutMs -= 100;
+							} catch (final InterruptedException e) {
+								e.printStackTrace();
+							}
+					}
+					if (timeoutMs < 0)
+						throw new RuntimeException("Attempt to create bucket and wait for consistency failed.");
+				}
+			}
 
 			@Override public void close() {
 
@@ -96,7 +211,7 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 
 		final String bucketName = getS3Bucket(location);
 		final String basePath = getS3Key(location);
-		return new N5AmazonS3Writer(s3, bucketName, basePath, gson);
+		return new N5AmazonS3Writer(getS3(), bucketName, basePath, gson);
 	}
 
 	@Override
@@ -104,14 +219,15 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 
 		final String bucketName = getS3Bucket(location);
 		final String basePath = getS3Key(location);
-		return new N5AmazonS3Reader(s3, bucketName, basePath, gson);
+		return new N5AmazonS3Reader(getS3(), bucketName, basePath, gson);
 	}
 
 	protected String getS3Bucket(final String uri) {
 
 		try {
 			return new AmazonS3URI(uri).getBucket();
-		} catch (final IllegalArgumentException e) {}
+		} catch (final IllegalArgumentException e) {
+		}
 		try {
 			// parse bucket manually when AmazonS3URI can't
 			final String path = new URI(uri).getPath().replaceFirst("^/", "");
@@ -127,12 +243,14 @@ public abstract class AbstractN5AmazonS3Test extends AbstractN5Test {
 			// if key is null, return the empty string
 			final String key = new AmazonS3URI(uri).getKey();
 			return key == null ? "" : key;
-		} catch (final IllegalArgumentException e) {}
+		} catch (final IllegalArgumentException e) {
+		}
 		try {
 			// parse key manually when AmazonS3URI can't
 			final String path = new URI(uri).getPath().replaceFirst("^/", "");
 			return path.substring(path.indexOf('/') + 1);
-		} catch (final URISyntaxException e) {}
+		} catch (final URISyntaxException e) {
+		}
 		return "";
 	}
 

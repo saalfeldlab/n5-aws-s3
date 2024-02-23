@@ -44,19 +44,17 @@ import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.s3.backend.BackendS3Factory;
-import org.janelia.saalfeldlab.n5.s3.mock.MockS3Factory;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3URI;
 import com.google.gson.GsonBuilder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import static org.junit.Assume.assumeThat;
-import static org.junit.Assume.assumeTrue;
+import static org.janelia.saalfeldlab.n5.s3.AmazonS3Utils.getS3Bucket;
+import static org.janelia.saalfeldlab.n5.s3.AmazonS3Utils.getS3Key;
 
 /**
  * Base class for testing Amazon Web Services N5 implementation.
@@ -65,27 +63,16 @@ import static org.junit.Assume.assumeTrue;
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
 @RunWith(Parameterized.class)
-@Parameterized.UseParametersRunnerFactory(IgnoreTestCasesByParameter.class)
-@IgnoreTestCasesByParameter.IgnoreParameter()
 public class N5AmazonS3Tests extends AbstractN5Test {
-
-	private static boolean skipBackendIfNotEnabled(final boolean isBackendTest) {
-
-		return isBackendTest && !"true".equals(System.getProperty("run-backend-test"));
-	}
 
 	@Parameterized.Parameters(name = "{0}")
 	public static Collection<Object[]> data() {
 
 		return Arrays.asList(new Object[][]{
-		{"mock s3 , container at generated path" 						, null , false , false , skipBackendIfNotEnabled(false)},
-		{"mock s3 , container at generated path , cache attributes" 	, null , true  , false , skipBackendIfNotEnabled(false)},
-		{"mock s3 , container at root"           						, "/"  , false , false , skipBackendIfNotEnabled(false)},
-		{"mock s3 , container at root with , cache attributes" 			, "/"  , true  , false , skipBackendIfNotEnabled(false)},
-		{"backend s3 , container at generated path" 					, null , false , true  , skipBackendIfNotEnabled(true)},
-		{"backend s3 , container at generated path , cache attributes" 	, null , true  , true  , skipBackendIfNotEnabled(true)},
-		{"backend s3 , container at root"           					, "/"  , false , true  , skipBackendIfNotEnabled(true)},
-		{"backend s3 , container at root with , cache attributes" 		, "/"  , true  , true  , skipBackendIfNotEnabled(true)}
+				{"backend s3, container at generated path", null, false},
+				{"backend s3, container at generated path , cache attributes", null, true},
+				{"backend s3, container at root", "/", false},
+				{"backend s3, container at root with , cache attributes", "/", true}
 		});
 	}
 
@@ -101,14 +88,6 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 
 	@Parameterized.Parameter(2)
 	public boolean useCache;
-
-	@Parameterized.Parameter(3)
-	public boolean useBackend;
-
-	/* This is used to skip backend tests when they are not enabled.
-	* Handled in the RunnerFactory, but instance field for the parameter is still required */
-	@Parameterized.Parameter(4)
-	public boolean skipTests;
 
 	private static String generateName(final String prefix, final String suffix) {
 
@@ -152,10 +131,7 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 
 	protected AmazonS3 getS3() {
 
-		if (useBackend)
-			return BackendS3Factory.getOrCreateS3();
-		else
-			return MockS3Factory.getOrCreateS3();
+		return BackendS3Factory.getOrCreateS3();
 	}
 
 	@Override
@@ -177,7 +153,8 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 		return new N5AmazonS3Writer(getS3(), bucketName, basePath, new GsonBuilder(), useCache) {
 
 			{
-				if (useBackend) {
+				final boolean localS3 = getS3().getUrl(bucketName, basePath).getAuthority().contains("localhost");
+				if (!localS3) {
 					/* Creating a bucket on S3 only provides a guarantee of eventual consistency. To
 					 * ensure the bucket is created before testing, we wait to ensure it's visible before continuing.
 					 * https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel */
@@ -207,7 +184,7 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 	}
 
 	@Override
-	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
+	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) {
 
 		final String bucketName = getS3Bucket(location);
 		final String basePath = getS3Key(location);
@@ -215,43 +192,11 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 	}
 
 	@Override
-	protected N5Reader createN5Reader(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
+	protected N5Reader createN5Reader(final String location, final GsonBuilder gson) {
 
 		final String bucketName = getS3Bucket(location);
 		final String basePath = getS3Key(location);
 		return new N5AmazonS3Reader(getS3(), bucketName, basePath, gson);
-	}
-
-	protected String getS3Bucket(final String uri) {
-
-		try {
-			return new AmazonS3URI(uri).getBucket();
-		} catch (final IllegalArgumentException e) {
-		}
-		try {
-			// parse bucket manually when AmazonS3URI can't
-			final String path = new URI(uri).getPath().replaceFirst("^/", "");
-			return path.substring(0, path.indexOf('/'));
-		} catch (final URISyntaxException e) {
-		}
-		return null;
-	}
-
-	protected String getS3Key(final String uri) {
-
-		try {
-			// if key is null, return the empty string
-			final String key = new AmazonS3URI(uri).getKey();
-			return key == null ? "" : key;
-		} catch (final IllegalArgumentException e) {
-		}
-		try {
-			// parse key manually when AmazonS3URI can't
-			final String path = new URI(uri).getPath().replaceFirst("^/", "");
-			return path.substring(path.indexOf('/') + 1);
-		} catch (final URISyntaxException e) {
-		}
-		return "";
 	}
 
 	/**

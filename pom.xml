@@ -132,6 +132,11 @@
 			<groupId>com.amazonaws</groupId>
 			<artifactId>aws-java-sdk-s3</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>com.google.code.findbugs</groupId>
+			<artifactId>jsr305</artifactId>
+			<version>3.0.2</version>
+		</dependency>
 
 		<!-- Test dependencies -->
 		<dependency>
@@ -179,6 +184,7 @@
 				<configuration>
 					<excludes>
 						<exclude>org.janelia.saalfeldlab.n5.s3.backend.*.java</exclude>
+						<exclude>org.janelia.saalfeldlab.n5.s3.N5AmazonS3Tests.java</exclude>
 					</excludes>
 				</configuration>
 			</plugin>
@@ -203,10 +209,6 @@
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-surefire-plugin</artifactId>
 						<configuration>
-							<systemPropertyVariables>
-								<propertyName>run-backend-tests</propertyName>
-								<value>true</value>
-							</systemPropertyVariables>
 							<excludes combine.self="override"/>
 						</configuration>
 					</plugin>

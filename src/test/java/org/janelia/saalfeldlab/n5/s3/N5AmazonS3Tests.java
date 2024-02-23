@@ -80,6 +80,8 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 	protected static HashMap<AmazonS3, ArrayList<String>> s3Buckets = new HashMap<>();
 	private static final SecureRandom random = new SecureRandom();
 
+	private final String testBucket = tempBucketName(getS3());
+
 	@Parameterized.Parameter(0)
 	public String name;
 
@@ -142,7 +144,7 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 			containerPath = tempPath;
 		else
 			containerPath = tempContainerPath();
-		return new URI("s3", tempBucketName(getS3()), containerPath, null).toString();
+		return new URI("s3", testBucket, containerPath, null).toString();
 	}
 
 	@Override protected N5Writer createN5Writer() throws URISyntaxException {

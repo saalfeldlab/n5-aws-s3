@@ -45,7 +45,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
@@ -54,7 +53,6 @@ import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5URI;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
@@ -68,8 +66,6 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.waiters.HeadObjectFunction;
 
 public class AmazonS3KeyValueAccess implements KeyValueAccess {
-
-	private static final Pattern AWS_ENDPOINT_PATTERN = Pattern.compile("^(.+\\.)?(s3\\..*amazonaws\\.com)$");
 
 	private final AmazonS3 s3;
 	private final String bucketName;
@@ -149,7 +145,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			uriComponents[0] = uri.getPath();
 		} else {
 			// when using the http(s) scheme, need to do more checks, getS3Key does them
-			uriComponents[0] = getS3Key(uri.toString());
+			uriComponents[0] = AmazonS3Utils.getS3Key(uri.toString());
 		}
 		return compose(uriComponents);
 	}
@@ -171,7 +167,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			* 	It's not true that the inputs are always referencing absolute paths, but it doesn't matter in this
 			* 	case, since we only care about the relative portion of `path` to `base`, so the result always
 			* 	ignores the absolute prefix anyway. */
-			return getS3Key(normalize(uri("/" + base).relativize(uri("/" + path)).toString()));
+			return AmazonS3Utils.getS3Key(normalize(uri("/" + base).relativize(uri("/" + path)).toString()));
 		} catch (final URISyntaxException e) {
 			throw new N5Exception("Cannot relativize path (" + path +") with base (" + base + ")", e);
 		}
@@ -187,7 +183,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public URI uri(final String normalPath) throws URISyntaxException {
 
 		final URL url = s3.getUrl(bucketName, normalize(normalPath));
-		final Matcher matcher = AWS_ENDPOINT_PATTERN.matcher(url.getHost());
+		final Matcher matcher = AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(url.getHost());
 		if( matcher.find() )
 			return N5URI.from(
 					"s3://" + bucketName + (normalPath.startsWith("/") ? normalPath : "/" + normalPath), null, null)
@@ -195,35 +191,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		else {
 			return url.toURI();
 		}
-	}
-
-	private String getS3Bucket(final String uri) {
-
-		try {
-			return new AmazonS3URI(uri).getBucket();
-		} catch (final IllegalArgumentException e) {}
-		try {
-			// parse bucket manually when AmazonS3URI can't
-			final String path = new URI(uri).getPath().replaceFirst("^/", "");
-			return path.substring(0, path.indexOf('/'));
-		} catch (final URISyntaxException e) {
-		}
-		return null;
-	}
-
-	private String getS3Key(final String uri) {
-
-		try {
-			// if key is null, return the empty string
-			final String key = new AmazonS3URI(uri).getKey();
-			return key == null ? "" : key;
-		} catch (final IllegalArgumentException e) {}
-		try {
-			// parse key manually when AmazonS3URI can't
-			final String path = new URI(uri).getPath().replaceFirst("^/", "");
-			return path.substring(path.indexOf('/') + 1);
-		} catch (final URISyntaxException e) {}
-		return null;
 	}
 
 	/**

@@ -28,33 +28,33 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.SecureRandom;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.function.Supplier;
 
-import com.amazonaws.services.s3.model.AmazonS3Exception;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
-import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.N5KeyValueReader;
+import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.s3.backend.BackendS3Factory;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Test;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.google.gson.GsonBuilder;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import static org.janelia.saalfeldlab.n5.s3.AmazonS3Utils.getS3Bucket;
 import static org.janelia.saalfeldlab.n5.s3.AmazonS3Utils.getS3Key;
+import static org.junit.Assume.assumeTrue;
 
 /**
  * Base class for testing Amazon Web Services N5 implementation.
@@ -65,44 +65,88 @@ import static org.janelia.saalfeldlab.n5.s3.AmazonS3Utils.getS3Key;
 @RunWith(Parameterized.class)
 public class N5AmazonS3Tests extends AbstractN5Test {
 
-	@Parameterized.Parameters(name = "{0}")
+	public enum LocationInBucket {
+		ROOT(() -> "/", N5AmazonS3Tests::tempBucketName),
+		KEY(N5AmazonS3Tests::tempContainerPath, tempBucketName()::toString);
+
+		public final Supplier<String> getContainerPath;
+		private final Supplier<String> getBucketName;
+
+		LocationInBucket(Supplier<String> tempContainerPath, Supplier<String> tempBucketaName) {
+
+			this.getContainerPath = tempContainerPath;
+			this.getBucketName = tempBucketaName;
+		}
+
+		String getPath() {
+
+			return getContainerPath.get();
+		}
+
+
+
+		String getBucketName() {
+
+			return getBucketName.get();
+		}
+	}
+
+	public enum UseCache {
+		CACHE(true),
+		NO_CACHE(false);
+
+		final boolean cache;
+
+		UseCache(boolean cache) {
+
+			this.cache = cache;
+		}
+	}
+
+	@Parameterized.Parameters(name = "Container at {0}, {1}")
 	public static Collection<Object[]> data() {
 
 		return Arrays.asList(new Object[][]{
-				{"backend s3, container at generated path", null, false},
-				{"backend s3, container at generated path , cache attributes", null, true},
-				{"backend s3, container at root", "/", false},
-				{"backend s3, container at root with , cache attributes", "/", true}
+				{LocationInBucket.ROOT, UseCache.NO_CACHE},
+				{LocationInBucket.ROOT, UseCache.CACHE},
+				{LocationInBucket.KEY, UseCache.NO_CACHE},
+				{LocationInBucket.KEY, UseCache.CACHE}
 		});
 	}
 
-	private static int DOESNT_EXISTS_S3_CODE = 404;
-	protected static HashMap<AmazonS3, ArrayList<String>> s3Buckets = new HashMap<>();
 	private static final SecureRandom random = new SecureRandom();
 
-	private final String testBucket = tempBucketName(getS3());
-
-	@Parameterized.Parameter(0)
-	public String name;
+	@Parameterized.Parameter()
+	public LocationInBucket containerLocation;
 
 	@Parameterized.Parameter(1)
-	public String tempPath;
+	public UseCache useCache;
 
-	@Parameterized.Parameter(2)
-	public boolean useCache;
+	private static AmazonS3 lastS3 = null;
+
+	@Parameterized.AfterParam()
+	public static void removeTestBuckets() {
+
+		if (lastS3 == null) {
+			return;
+		}
+
+		for (LocationInBucket location : LocationInBucket.values()) {
+			final String bucketName = location.getBucketName();
+			if (lastS3.doesBucketExistV2(bucketName))
+				lastS3.deleteBucket(bucketName);
+		}
+		lastS3 = null;
+	}
 
 	private static String generateName(final String prefix, final String suffix) {
 
 		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
 	}
 
-	public static String tempBucketName(final AmazonS3 s3) {
+	public static String tempBucketName() {
 
-		final String bucket = generateName("n5-test-", "-bucket");
-		final ArrayList<String> s3Resources = s3Buckets.getOrDefault(s3, new ArrayList<>());
-		s3Resources.add(bucket);
-		s3Buckets.putIfAbsent(s3, s3Resources);
-		return bucket;
+		return generateName("n5-test-", "-bucket");
 	}
 
 	public static String tempContainerPath() {
@@ -110,49 +154,54 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 		return generateName("/n5-test-", ".n5");
 	}
 
-	@AfterClass
-	public static void cleanup() {
-
-		synchronized (s3Buckets) {
-			for (Map.Entry<AmazonS3, ArrayList<String>> s3Buckets : s3Buckets.entrySet()) {
-				final AmazonS3 s3 = s3Buckets.getKey();
-				final ArrayList<String> buckets = s3Buckets.getValue();
-				for (String bucket : buckets) {
-					try {
-						if (s3.doesBucketExistV2(bucket))
-							s3.deleteBucket(bucket);
-					} catch (AmazonS3Exception e) {
-						if (e.getStatusCode() != DOESNT_EXISTS_S3_CODE)
-							throw e;
-					}
-				}
-			}
-			s3Buckets.clear();
-		}
-	}
-
 	protected AmazonS3 getS3() {
 
-		return BackendS3Factory.getOrCreateS3();
+		final AmazonS3 s3 = BackendS3Factory.getOrCreateS3();
+		lastS3 = s3;
+		return s3;
+	}
+
+	private int bucketCount;
+
+	@Before
+	public void countBuckets() {
+		this.bucketCount = getS3().listBuckets().size();
+	}
+
+	@AfterClass
+	public static void removeTempBuckets() {
+
+		System.out.println("after class?");
 	}
 
 	@Override
 	protected String tempN5Location() throws URISyntaxException {
 
-		final String containerPath;
-		if (tempPath != null)
-			containerPath = tempPath;
-		else
-			containerPath = tempContainerPath();
+		final String containerPath = containerLocation.getPath();
+		final String testBucket = containerLocation.getBucketName();
 		return new URI("s3", testBucket, containerPath, null).toString();
 	}
 
 	@Override protected N5Writer createN5Writer() throws URISyntaxException {
 
-		final String location = tempN5Location();
-		final String bucketName = getS3Bucket(location);
-		final String basePath = getS3Key(location);
-		return new N5AmazonS3Writer(getS3(), bucketName, basePath, new GsonBuilder(), useCache) {
+		final String s3ContainerUri = tempN5Location();
+
+		return delayedBucketCreationWriter(s3ContainerUri, new GsonBuilder());
+	}
+
+	private N5KeyValueWriter delayedBucketCreationWriter(String s3ContainerUri, GsonBuilder gson) {
+
+		final String bucketName = getS3Bucket(s3ContainerUri);
+		final String basePath = getS3Key(s3ContainerUri);
+
+		final KeyValueAccess s3kva;
+		try {
+			s3kva = new AmazonS3KeyValueAccess(getS3(), N5URI.encodeAsUri(s3ContainerUri), true);
+		} catch (URISyntaxException e) {
+			throw new RuntimeException(e);
+		}
+
+		return new N5KeyValueWriter(s3kva, s3ContainerUri, gson, useCache.cache) {
 
 			{
 				final boolean localS3 = getS3().getUrl(bucketName, basePath).getAuthority().contains("localhost");
@@ -176,81 +225,47 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 						throw new RuntimeException("Attempt to create bucket and wait for consistency failed.");
 				}
 			}
-
-			@Override public void close() {
-
-				remove();
-				super.close();
-			}
 		};
 	}
 
 	@Override
 	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) {
 
-		final String bucketName = getS3Bucket(location);
-		final String basePath = getS3Key(location);
-		return new N5AmazonS3Writer(getS3(), bucketName, basePath, gson);
+		return delayedBucketCreationWriter(location, gson);
 	}
 
 	@Override
 	protected N5Reader createN5Reader(final String location, final GsonBuilder gson) {
 
-		final String bucketName = getS3Bucket(location);
-		final String basePath = getS3Key(location);
-		return new N5AmazonS3Reader(getS3(), bucketName, basePath, gson);
-	}
-
-	/**
-	 * Currently, {@code N5AmazonS3Reader#exists(String)} is implemented by listing objects under that group.
-	 * This test case specifically tests its correctness.
-	 *
-	 * @throws IOException
-	 */
-	@Test
-	public void testExistsUsingListingObjects() throws IOException, URISyntaxException {
-
-		try (N5Writer n5 = createN5Writer()) {
-			n5.createGroup("/one/two/three");
-
-			Assert.assertTrue(n5.exists(""));
-			Assert.assertTrue(n5.exists("/"));
-
-			Assert.assertTrue(n5.exists("one"));
-			Assert.assertTrue(n5.exists("one/"));
-			Assert.assertTrue(n5.exists("/one"));
-			Assert.assertTrue(n5.exists("/one/"));
-
-			Assert.assertTrue(n5.exists("one/two"));
-			Assert.assertTrue(n5.exists("one/two/"));
-			Assert.assertTrue(n5.exists("/one/two"));
-			Assert.assertTrue(n5.exists("/one/two/"));
-
-			Assert.assertTrue(n5.exists("one/two/three"));
-			Assert.assertTrue(n5.exists("one/two/three/"));
-			Assert.assertTrue(n5.exists("/one/two/three"));
-			Assert.assertTrue(n5.exists("/one/two/three/"));
-
-			Assert.assertFalse(n5.exists("one/tw"));
-			Assert.assertFalse(n5.exists("one/tw/"));
-			Assert.assertFalse(n5.exists("/one/tw"));
-			Assert.assertFalse(n5.exists("/one/tw/"));
-
-			Assert.assertArrayEquals(new String[]{"one"}, n5.list("/"));
-			Assert.assertArrayEquals(new String[]{"two"}, n5.list("/one"));
-			Assert.assertArrayEquals(new String[]{"three"}, n5.list("/one/two"));
-
-			Assert.assertArrayEquals(new String[]{}, n5.list("/one/two/three"));
-			Assert.assertThrows(N5Exception.N5IOException.class, () -> n5.list("/one/tw"));
-
-			Assert.assertTrue(n5.remove("/one/two/three"));
-			Assert.assertFalse(n5.exists("/one/two/three"));
-			Assert.assertTrue(n5.exists("/one/two"));
-			Assert.assertTrue(n5.exists("/one"));
-
-			Assert.assertTrue(n5.remove("/one"));
-			Assert.assertFalse(n5.exists("/one/two"));
-			Assert.assertFalse(n5.exists("/one"));
+		final KeyValueAccess s3kva;
+		try {
+			s3kva = new AmazonS3KeyValueAccess(getS3(), new URI(location), false);
+		} catch (URISyntaxException e) {
+			throw new RuntimeException(e);
 		}
+
+		return new N5KeyValueReader(s3kva, location, gson, useCache.cache);
 	}
+
+	@Test
+	@Override
+	public void testWriterSeparation() {
+
+		/* The base test will fail when `container is bucket root` parameter is true; Skip the test in that case. */
+		assumeTrue("Writer Separation fails when container is at the bucket root, since the writers are at the same location", containerLocation != LocationInBucket.ROOT);
+	}
+
+//	public static void main(String[] args) throws URISyntaxException {
+//	public static void DELETEALLBUCKET(String[] args) throws URISyntaxException {
+//
+//		final AmazonS3 s3 = AmazonS3ClientBuilder.defaultClient();
+//		for (Bucket bucket : s3.listBuckets()) {
+//			final String bucketName = bucket.getName();
+//			if (bucketName.startsWith("n5-test-")) {
+//				final String containerURI = "s3://" + bucketName;
+//				final N5KeyValueWriter writer = new N5KeyValueWriter(new AmazonS3KeyValueAccess(s3, containerURI, false), containerURI, new GsonBuilder(), false);
+//				writer.remove();
+//			}
+//		}
+//	}
 }

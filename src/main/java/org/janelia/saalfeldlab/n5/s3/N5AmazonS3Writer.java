@@ -28,8 +28,6 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import java.io.IOException;
-
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
@@ -38,13 +36,14 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.google.gson.GsonBuilder;
 
 /**
- * TODO: javadoc
+ * This class is used to create an N5Writer with an Amazon S3 storage backend.
+ *
+ * @deprecated This class is deprecated and may be removed in a future release.
+ * 	Replace with either `N5Factory.openWriter()` or `N5KeyValueAccessWriter` with
+ * 	an `AmazonS3KeyValueAccess` backend.
  */
+@Deprecated
 public class N5AmazonS3Writer extends N5KeyValueWriter {
-
-	/**
-	 * TODO: reduce number of constructors ?
-	 */
 
 	/**
 	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
@@ -65,7 +64,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
 
 		super(
-				new AmazonS3KeyValueAccess(s3, bucketName, true),
+				new AmazonS3KeyValueAccess(s3, "s3://" + bucketName + "/" + basePath, true),
 				basePath,
 				gsonBuilder,
 				cacheAttributes);

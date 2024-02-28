@@ -40,11 +40,11 @@ import org.janelia.saalfeldlab.n5.N5KeyValueReader;
 public class N5AmazonS3Reader extends N5KeyValueReader {
 
 	/**
-	 * TODO: reduce number of constructors ?
-	 */
-
-	/**
 	 * Opens an {@link N5Reader} with an {@link AmazonS3} storage backend.
+	 *
+	 * @deprecated This class is deprecated and may be removed in a future release.
+	 * 	Replace with either `N5Factory.openReader()` or `N5KeyValueAccessReader` with
+	 * 	an `AmazonS3KeyValueAccess` backend.
      *
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
@@ -59,10 +59,11 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the reader could not be created
 	 */
+	@Deprecated
 	public N5AmazonS3Reader(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws N5Exception {
 
 		super(
-				new AmazonS3KeyValueAccess(s3, bucketName, false),
+				new AmazonS3KeyValueAccess(s3, "s3://" + bucketName + "/" + basePath, false),
 				basePath,
 				gsonBuilder,
 				cacheMeta);

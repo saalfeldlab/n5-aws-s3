@@ -30,21 +30,31 @@ public class AmazonS3Utils {
 	}
 
 	public static String getS3Bucket(final String uri) {
+		try {
+			return getS3Bucket(new URI(uri));
+		} catch (final URISyntaxException e) {
+		}
+		return null;
+	}
+	public static String getS3Bucket(final URI uri) {
 
 		try {
 			return new AmazonS3URI(uri).getBucket();
 		} catch (final IllegalArgumentException e) {
 		}
-		try {
-			// parse bucket manually when AmazonS3URI can't
-			final String path = new URI(uri).getPath().replaceFirst("^/", "");
-			return path.substring(0, path.indexOf('/'));
-		} catch (final URISyntaxException e) {
-		}
-		return null;
+		// parse bucket manually when AmazonS3URI can't
+		final String path = uri.getPath().replaceFirst("^/", "");
+		return path.split("/")[0];
 	}
 
 	public static String getS3Key(final String uri) {
+		try {
+			return getS3Key(new URI(uri));
+		} catch (final URISyntaxException e) {
+		}
+		return "";
+	}
+	public static String getS3Key(final URI uri) {
 
 		try {
 			// if key is null, return the empty string
@@ -52,13 +62,9 @@ public class AmazonS3Utils {
 			return key == null ? "" : key;
 		} catch (final IllegalArgumentException e) {
 		}
-		try {
-			// parse key manually when AmazonS3URI can't
-			final String path = new URI(uri).getPath().replaceFirst("^/", "");
-			return path.substring(path.indexOf('/') + 1);
-		} catch (final URISyntaxException e) {
-		}
-		return "";
+		// parse key manually when AmazonS3URI can't
+		final String path = uri.getPath().replaceFirst("^/", "");
+		return path.substring(path.indexOf('/') + 1);
 	}
 
 	public static boolean areAnonymous(final AWSCredentialsProvider credsProvider) {
@@ -123,9 +129,9 @@ public class AmazonS3Utils {
 				final URI endpointUrl = new URI(buri.getScheme(), buri.getHost(), null, null);
 				return createS3(AmazonS3Utils.getS3Bucket(uri), s3Credentials, new AwsClientBuilder.EndpointConfiguration(endpointUrl.toString(), null), null);
 			} catch (final URISyntaxException e1) {
+				throw new N5Exception("Could not create s3 client from uri: " + uri, e1);
 			}
 		}
-		throw new N5Exception("Could not create s3 client from uri: " + uri);
 	}
 
 	public static AmazonS3 createS3(final AmazonS3URI s3Uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials, @Nullable final String region) {

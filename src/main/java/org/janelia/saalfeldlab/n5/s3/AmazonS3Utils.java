@@ -125,9 +125,9 @@ public class AmazonS3Utils {
 		} catch (final IllegalArgumentException e) {
 			// if AmazonS3URI does not like the form of the uri
 			try {
-				final URI buri = new URI(uri);
-				final URI endpointUrl = new URI(buri.getScheme(), buri.getHost(), null, null);
-				return createS3(AmazonS3Utils.getS3Bucket(uri), s3Credentials, new AwsClientBuilder.EndpointConfiguration(endpointUrl.toString(), null), null);
+				final URI asURI = new URI(uri);
+				final URI endpointUri = new URI(asURI.getScheme(), asURI.getAuthority(), null, null);
+				return createS3(AmazonS3Utils.getS3Bucket(uri), s3Credentials, new AwsClientBuilder.EndpointConfiguration(endpointUri.toString(), null), null);
 			} catch (final URISyntaxException e1) {
 				throw new N5Exception("Could not create s3 client from uri: " + uri, e1);
 			}

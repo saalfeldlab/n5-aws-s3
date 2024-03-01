@@ -35,8 +35,12 @@ import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5KeyValueReader;
 
 /**
- * TODO: javadoc
+ *
+ * @deprecated This class is deprecated and may be removed in a future release.
+ * 	Replace with either `N5Factory.openReader()` or `N5KeyValueAccessReader` with
+ * 	an `AmazonS3KeyValueAccess` backend.
  */
+@Deprecated
 public class N5AmazonS3Reader extends N5KeyValueReader {
 
 	/**

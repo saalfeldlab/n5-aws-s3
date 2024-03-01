@@ -181,7 +181,7 @@ public class AmazonS3Utils {
 			builder.withRegion("us-east-1");
 
 		AmazonS3 s3 = builder.build();
-		// if we used anonymous credentials and credentials were provided, try with credentials:
+		// try to listBucket if we are anonymous, if we cannot, don't use anonymous.
 		if (credentialsProvider != null && AmazonS3Utils.areAnonymous(credentialsProvider)) {
 
 			// I initially tried checking whether the bucket exists, but

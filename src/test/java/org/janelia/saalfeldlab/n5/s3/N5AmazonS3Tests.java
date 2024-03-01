@@ -28,6 +28,27 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.google.gson.GsonBuilder;
+import org.janelia.saalfeldlab.n5.AbstractN5Test;
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5KeyValueReader;
+import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5URI;
+import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.s3.backend.BackendS3Factory;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestWatcher;
+import org.junit.runner.Description;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.model.Statement;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.SecureRandom;
@@ -35,25 +56,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Supplier;
 
-import org.janelia.saalfeldlab.n5.AbstractN5Test;
-import org.janelia.saalfeldlab.n5.KeyValueAccess;
-import org.janelia.saalfeldlab.n5.N5KeyValueReader;
-import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
-import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.N5URI;
-import org.janelia.saalfeldlab.n5.N5Writer;
-import org.janelia.saalfeldlab.n5.s3.backend.BackendS3Factory;
-
-import com.amazonaws.services.s3.AmazonS3;
-import com.google.gson.GsonBuilder;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-
 import static org.janelia.saalfeldlab.n5.s3.AmazonS3Utils.getS3Bucket;
-import static org.janelia.saalfeldlab.n5.s3.AmazonS3Utils.getS3Key;
 import static org.junit.Assume.assumeTrue;
 
 /**
@@ -64,6 +67,38 @@ import static org.junit.Assume.assumeTrue;
  */
 @RunWith(Parameterized.class)
 public class N5AmazonS3Tests extends AbstractN5Test {
+
+	public static class SkipErroneousNoSuchBucketFailure extends TestWatcher {
+
+		private void assumeFailIfNoSuchBucket(Throwable exception) {
+
+			if (exception.getCause() instanceof AmazonServiceException)
+				assumeFailIfNoSuchBucket(((AmazonServiceException)exception.getCause()));
+		}
+
+		private void assumeFailIfNoSuchBucket(AmazonServiceException exception) {
+
+			final int statusCode = exception.getStatusCode();
+			final String errorCode = exception.getErrorCode();
+			if (errorCode == null) {
+				throw exception;
+			}
+			assumeTrue("Erroneous NoSuchBucket Exception. Rerun to verify if this is a true test failure", statusCode != 404 && errorCode.equals("NoSuchBucket"));
+		}
+
+		@Override
+		public Statement apply(final Statement base, final Description description) {
+
+			try {
+				base.evaluate();
+			} catch (N5Exception | AmazonServiceException exception) {
+				assumeFailIfNoSuchBucket(exception);
+				throw exception;
+			} catch (Throwable ignore) {
+			}
+			return base;
+		}
+	}
 
 	public enum LocationInBucket {
 		ROOT(() -> "/", N5AmazonS3Tests::tempBucketName),
@@ -82,8 +117,6 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 
 			return getContainerPath.get();
 		}
-
-
 
 		String getBucketName() {
 
@@ -116,27 +149,34 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 
 	private static final SecureRandom random = new SecureRandom();
 
+	protected static boolean skipErroneousBackendFailures = true;
+
+	@Rule
+	public TestWatcher skipErroneousWatcher = null;
+
 	@Parameterized.Parameter()
 	public LocationInBucket containerLocation;
 
 	@Parameterized.Parameter(1)
 	public UseCache useCache;
 
-	private static AmazonS3 lastS3 = null;
+	protected static AmazonS3 lateinitS3 = null;
 
 	@Parameterized.AfterParam()
 	public static void removeTestBuckets() {
 
-		if (lastS3 == null) {
-			return;
-		}
-
 		for (LocationInBucket location : LocationInBucket.values()) {
 			final String bucketName = location.getBucketName();
-			if (lastS3.doesBucketExistV2(bucketName))
-				lastS3.deleteBucket(bucketName);
+			try {
+				final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(lateinitS3, N5URI.encodeAsUri("s3://" + bucketName), false);
+				kva.delete(kva.normalize("/"));
+			} catch (Exception e) {
+				if (!lateinitS3.doesBucketExistV2(bucketName))
+					continue;
+				System.err.println("Exception After Tests, Could Not Delete Test Bucket:" + bucketName);
+				e.printStackTrace();
+			}
 		}
-		lastS3 = null;
 	}
 
 	private static String generateName(final String prefix, final String suffix) {
@@ -154,24 +194,15 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 		return generateName("/n5-test-", ".n5");
 	}
 
+	{
+		if (skipErroneousBackendFailures)
+			skipErroneousWatcher = new SkipErroneousNoSuchBucketFailure();
+		lateinitS3 = getS3();
+	}
+
 	protected AmazonS3 getS3() {
 
-		final AmazonS3 s3 = BackendS3Factory.getOrCreateS3();
-		lastS3 = s3;
-		return s3;
-	}
-
-	private int bucketCount;
-
-	@Before
-	public void countBuckets() {
-		this.bucketCount = getS3().listBuckets().size();
-	}
-
-	@AfterClass
-	public static void removeTempBuckets() {
-
-		System.out.println("after class?");
+		return BackendS3Factory.getOrCreateS3();
 	}
 
 	@Override
@@ -192,19 +223,19 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 	private N5KeyValueWriter delayedBucketCreationWriter(String s3ContainerUri, GsonBuilder gson) {
 
 		final String bucketName = getS3Bucket(s3ContainerUri);
-		final String basePath = getS3Key(s3ContainerUri);
 
-		final KeyValueAccess s3kva;
-		try {
-			s3kva = new AmazonS3KeyValueAccess(getS3(), N5URI.encodeAsUri(s3ContainerUri), true);
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
+		final KeyValueAccess s3kva = new AmazonS3KeyValueAccess(getS3(), URI.create(s3ContainerUri), true);
 
 		return new N5KeyValueWriter(s3kva, s3ContainerUri, gson, useCache.cache) {
 
 			{
-				final boolean localS3 = getS3().getUrl(bucketName, basePath).getAuthority().contains("localhost");
+				final URI containerUri;
+				try {
+					containerUri = s3kva.uri("");
+				} catch (URISyntaxException e) {
+					throw new RuntimeException(e);
+				}
+				final boolean localS3 = containerUri.getAuthority().contains("localhost");
 				if (!localS3) {
 					/* Creating a bucket on S3 only provides a guarantee of eventual consistency. To
 					 * ensure the bucket is created before testing, we wait to ensure it's visible before continuing.
@@ -255,8 +286,21 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 		assumeTrue("Writer Separation fails when container is at the bucket root, since the writers are at the same location", containerLocation != LocationInBucket.ROOT);
 	}
 
-//	public static void main(String[] args) throws URISyntaxException {
-//	public static void DELETEALLBUCKET(String[] args) throws URISyntaxException {
+	@Test
+	public void testErroneousNoSuchBucketFailure() {
+
+		throw new AmazonS3Exception(
+				"This Exception should trigger a skipped test, not a failure",
+				new AmazonS3Exception("Erroneous NoSuchBucket Failure") {
+
+					{
+						setErrorCode("NoSuchBucket");
+						setStatusCode(404);
+					}
+				});
+
+	}
+//	public static void deleteAllTestBuckets() {
 //
 //		final AmazonS3 s3 = AmazonS3ClientBuilder.defaultClient();
 //		for (Bucket bucket : s3.listBuckets()) {

@@ -171,13 +171,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		final String[] uriComponents = new String[components.length + 1];
 		System.arraycopy(components, 0, uriComponents, 1, components.length);
-		if ("s3".equalsIgnoreCase(uri.getScheme())) {
-			// when using the s3 scheme, the bucket name is the "host", and the group is the "path"
-			uriComponents[0] = uri.getPath();
-		} else {
-			// when using the http(s) scheme, need to do more checks, getS3Key does them
-			uriComponents[0] = AmazonS3Utils.getS3Key(uri.toString());
-		}
+		uriComponents[0] = AmazonS3Utils.getS3Key(uri);
 		return compose(uriComponents);
 	}
 
@@ -228,6 +222,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 */
 	@Override
 	public URI uri(final String normalPath) throws URISyntaxException {
+
+		if (normalize(normalPath).equals(normalize("/")))
+			return containerURI;
 
 		final Path containerPath = Paths.get(containerURI.getPath());
 		final Path givenPath = Paths.get(URI.create(normalPath).getPath());
@@ -336,7 +333,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		if (key.equals(normalize("/"))) {
 			return s3.doesBucketExistV2(bucketName);
 		}
-		return key.isEmpty() || prefixExists(key);
+		return prefixExists(key);
 	}
 
 	/**

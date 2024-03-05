@@ -11,7 +11,7 @@
 
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>n5-aws-s3</artifactId>
-	<version>4.1.0-SNAPSHOT</version>
+	<version>4.1.1-SNAPSHOT</version>
 
 	<name>N5 AWS S3</name>
 	<description>N5 library implementation using Amazon Web Services S3 backend.</description>
@@ -209,7 +209,7 @@
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-surefire-plugin</artifactId>
 						<configuration>
-							<excludes combine.self="override"/>
+							<excludes combine.self="override" />
 						</configuration>
 					</plugin>
 				</plugins>

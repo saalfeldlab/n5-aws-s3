@@ -226,8 +226,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		if (normalize(normalPath).equals(normalize("/")))
 			return containerURI;
 
-
-
 		final Path containerPath = Paths.get(containerURI.getPath());
 		final Path givenPath = Paths.get(URI.create(normalPath).getPath());
 

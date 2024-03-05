@@ -226,11 +226,18 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		if (normalize(normalPath).equals(normalize("/")))
 			return containerURI;
 
+
+
 		final Path containerPath = Paths.get(containerURI.getPath());
 		final Path givenPath = Paths.get(URI.create(normalPath).getPath());
 
 		final Path resolvedPath = containerPath.resolve(givenPath);
-		final String normalResolvedPath = compose("/", resolvedPath.toString());
+		final String[] pathParts = new String[resolvedPath.getNameCount() + 1];
+		pathParts[0] = "/";
+		for (int i = 0; i < resolvedPath.getNameCount(); i++) {
+			pathParts[i + 1] = resolvedPath.getName(i).toString();
+		}
+		final String normalResolvedPath = compose(pathParts);
 
 		return new URI(containerURI.getScheme(), containerURI.getAuthority(), normalResolvedPath, null, null);
 	}

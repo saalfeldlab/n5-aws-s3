@@ -73,7 +73,9 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 
 		private void assumeFailIfNoSuchBucket(Throwable exception) {
 
-			if (exception.getCause() instanceof AmazonServiceException)
+			if (exception instanceof AmazonServiceException)
+				assumeFailIfNoSuchBucket(((AmazonServiceException)exception));
+			else if (exception.getCause() instanceof AmazonServiceException)
 				assumeFailIfNoSuchBucket(((AmazonServiceException)exception.getCause()));
 		}
 

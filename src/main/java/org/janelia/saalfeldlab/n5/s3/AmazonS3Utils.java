@@ -30,12 +30,14 @@ public class AmazonS3Utils {
 	}
 
 	public static String getS3Bucket(final String uri) {
+
 		try {
 			return getS3Bucket(new URI(uri));
 		} catch (final URISyntaxException e) {
 		}
 		return null;
 	}
+
 	public static String getS3Bucket(final URI uri) {
 
 		try {
@@ -48,12 +50,14 @@ public class AmazonS3Utils {
 	}
 
 	public static String getS3Key(final String uri) {
+
 		try {
 			return getS3Key(new URI(uri));
 		} catch (final URISyntaxException e) {
 		}
 		return "";
 	}
+
 	public static String getS3Key(final URI uri) {
 
 		try {
@@ -71,7 +75,7 @@ public class AmazonS3Utils {
 
 		final AWSCredentials creds = credsProvider.getCredentials();
 		// AnonymousAWSCredentials do not have an equals method
-		if (creds.getClass().equals(AnonymousAWSCredentials.class))
+		if (creds instanceof AnonymousAWSCredentials)
 			return true;
 
 		return creds.getAWSAccessKeyId() == null && creds.getAWSSecretKey() == null;
@@ -80,7 +84,7 @@ public class AmazonS3Utils {
 	public static Regions getS3Region(final AmazonS3URI uri, @Nullable final String region) {
 
 		final Regions regionFromUri = parseRegion(uri.getRegion());
- 		return  regionFromUri != null ? regionFromUri : parseRegion(region);
+		return regionFromUri != null ? regionFromUri : parseRegion(region);
 	}
 
 	private static Regions parseRegion(String stringRegionFromUri) {
@@ -88,28 +92,17 @@ public class AmazonS3Utils {
 		return stringRegionFromUri != null ? Regions.fromName(stringRegionFromUri) : null;
 	}
 
-	public static AWSStaticCredentialsProvider getS3Credentials(final AWSCredentials s3Credentials, final boolean s3Anonymous) {
+	public static AWSCredentialsProvider getS3Credentials(final AWSCredentials s3Credentials, final boolean s3Anonymous) {
 
-		AWSCredentials credentials = null;
-		final AWSStaticCredentialsProvider credentialsProvider;
 		if (s3Credentials != null) {
-			credentials = s3Credentials;
-			credentialsProvider = new AWSStaticCredentialsProvider(credentials);
+			return new AWSStaticCredentialsProvider(s3Credentials);
 		} else {
 			// if not anonymous, try finding credentials
-			if (!s3Anonymous) {
-				try {
-					credentials = new DefaultAWSCredentialsProviderChain().getCredentials();
-				} catch (final Exception e) {
-					System.out.println("Could not load AWS credentials, falling back to anonymous.");
-				}
-				credentialsProvider = new AWSStaticCredentialsProvider(
-						credentials == null ? new AnonymousAWSCredentials() : credentials);
-			} else
-				credentialsProvider = new AWSStaticCredentialsProvider(new AnonymousAWSCredentials());
+			if (!s3Anonymous)
+				return new DefaultAWSCredentialsProviderChain();
+			else
+				return new AWSStaticCredentialsProvider(new AnonymousAWSCredentials());
 		}
-
-		return credentialsProvider;
 	}
 
 	public static AmazonS3 createS3(final String uri) {
@@ -186,10 +179,11 @@ public class AmazonS3Utils {
 
 			// I initially tried checking whether the bucket exists, but
 			// that, apparently, returns even when the client does not have access
-			if (!canListBucket(s3, bucketName)) {
+			if (!s3.doesBucketExistV2(bucketName) || !canListBucket(s3, bucketName)) {
 				// bucket not detected with anonymous credentials, try detecting credentials
 				// and return it even if it can't detect the bucket, since there's nothing else to do
-				s3 = createS3(null, new DefaultAWSCredentialsProviderChain(), endpointConfiguration, region);
+				builder.withCredentials(new DefaultAWSCredentialsProviderChain());
+				return builder.build();
 			}
 		}
 		return s3;

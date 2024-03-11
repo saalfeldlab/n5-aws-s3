@@ -16,6 +16,7 @@ import org.janelia.saalfeldlab.n5.N5Exception;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -67,8 +68,14 @@ public class AmazonS3Utils {
 		} catch (final IllegalArgumentException e) {
 		}
 		// parse key manually when AmazonS3URI can't
-		final String path = uri.getPath().replaceFirst("^/", "");
-		return path.substring(path.indexOf('/') + 1);
+		final StringBuilder keyBuilder = new StringBuilder();
+		final String[] parts = uri.getPath().replaceFirst("^/", "").split("/");
+		for (int i = 1; i < parts.length; i++) {
+			keyBuilder.append(parts[i]);
+			if (i != parts.length - 1 || uri.getPath().endsWith("/"))
+					keyBuilder.append("/");
+		}
+		return keyBuilder.toString();
 	}
 
 	public static boolean areAnonymous(final AWSCredentialsProvider credsProvider) {

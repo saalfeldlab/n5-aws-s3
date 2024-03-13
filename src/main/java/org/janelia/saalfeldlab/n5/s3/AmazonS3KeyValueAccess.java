@@ -47,6 +47,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.amazonaws.services.s3.AmazonS3URI;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
@@ -137,7 +138,17 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public String[] components(final String path) {
 
-		final String[] baseComponents = path.split("/");
+		/* If the path is a valid URI with a scheme then use it to get the key. Otherwise,
+		* use the path directly, assuming it's a path only */
+		String key = path;
+		try {
+			final URI uri = URI.create(path);
+			final String scheme = uri.getScheme();
+			if (scheme != null && !scheme.isEmpty())
+				key = AmazonS3Utils.getS3Key(uri);
+		} catch (Throwable ignore) {}
+
+		final String[] baseComponents = removeLeadingSlash(key).split("/");
 		if (baseComponents.length <= 1)
 			return baseComponents;
 		return Arrays.stream(baseComponents)
@@ -169,10 +180,11 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public String compose(final URI uri, final String... components) {
 
-		final String[] uriComponents = new String[components.length + 1];
-		System.arraycopy(components, 0, uriComponents, 1, components.length);
-		uriComponents[0] = AmazonS3Utils.getS3Key(uri);
-		return compose(uriComponents);
+		try {
+			return uriResolve(uri, compose(components)).toString();
+		} catch (URISyntaxException x) {
+			throw new IllegalArgumentException(x.getMessage(), x);
+		}
 	}
 
 	@Override
@@ -192,7 +204,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			* 	It's not true that the inputs are always referencing absolute paths, but it doesn't matter in this
 			* 	case, since we only care about the relative portion of `path` to `base`, so the result always
 			* 	ignores the absolute prefix anyway. */
-			return AmazonS3Utils.getS3Key(normalize(uri("/" + base).relativize(uri("/" + path)).toString()));
+			final URI baseAsUri = uri("/" + base);
+			final URI pathAsUri = uri("/" + path);
+			final URI relativeUri = baseAsUri.relativize(pathAsUri);
+			return relativeUri.getPath();
 		} catch (final URISyntaxException e) {
 			throw new N5Exception("Cannot relativize path (" + path + ") with base (" + base + ")", e);
 		}
@@ -223,11 +238,16 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public URI uri(final String normalPath) throws URISyntaxException {
 
-		if (normalize(normalPath).equals(normalize("/")))
-			return containerURI;
+		return uriResolve(containerURI, normalPath);
+	}
 
-		final Path containerPath = Paths.get(containerURI.getPath());
-		final Path givenPath = Paths.get(URI.create(normalPath).getPath());
+	private URI uriResolve(URI uri, String normalPath) throws URISyntaxException {
+
+		if (normalize(normalPath).equals(normalize("/")))
+			return uri;
+
+		final Path containerPath = Paths.get(uri.getPath());
+		final Path givenPath = Paths.get(new URI(normalPath).getPath());
 
 		final Path resolvedPath = containerPath.resolve(givenPath);
 		final String[] pathParts = new String[resolvedPath.getNameCount() + 1];
@@ -237,7 +257,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 		final String normalResolvedPath = compose(pathParts);
 
-		return new URI(containerURI.getScheme(), containerURI.getAuthority(), normalResolvedPath, null, null);
+		return new URI(uri.getScheme(), uri.getAuthority(), normalResolvedPath, null, null);
 	}
 
 	/**
@@ -273,14 +293,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 */
 	private boolean keyExists(final String key) {
 
-		/* In very preliminary tests, it appears that the obj listing request with one key max
-		 * returns the correct key, but I'm not confident we can count on that in general.
-		 * HeadObjectFunction (found by Caleb) is probably preferable for that reason. -John
-		 */
 		try {
-			final ObjectMetadata objMeta = new HeadObjectFunction(s3).apply(new GetObjectMetadataRequest(bucketName, key));
-			return objMeta != null;
-		} catch (Exception e) {
+			return s3.doesObjectExist(bucketName, key);
+		} catch (Throwable e) {
 			return false;
 		}
 	}
@@ -334,7 +349,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isDirectory(final String normalPath) {
 
-		final String key = removeLeadingSlash(addTrailingSlash(normalPath));
+		final String s3Key = AmazonS3Utils.getS3Key(normalPath);
+		final String key = removeLeadingSlash(addTrailingSlash(s3Key));
 		if (key.equals(normalize("/"))) {
 			return s3.doesBucketExistV2(bucketName);
 		}
@@ -354,19 +370,22 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isFile(final String normalPath) {
 
-		return !normalPath.endsWith("/") && keyExists(removeLeadingSlash(normalPath));
+		final String key = AmazonS3Utils.getS3Key(normalPath);
+		return !key.endsWith("/") && keyExists(removeLeadingSlash(key));
 	}
 
 	@Override
 	public LockedChannel lockForReading(final String normalPath) {
 
-		return new S3ObjectChannel(removeLeadingSlash(normalPath), true);
+		final String key = AmazonS3Utils.getS3Key(normalPath);
+		return new S3ObjectChannel(removeLeadingSlash(key), true);
 	}
 
 	@Override
 	public LockedChannel lockForWriting(final String normalPath) {
 
-		return new S3ObjectChannel(removeLeadingSlash(normalPath), false);
+		final String key = AmazonS3Utils.getS3Key(normalPath);
+		return new S3ObjectChannel(removeLeadingSlash(key), false);
 	}
 
 	@Override
@@ -381,8 +400,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
 		}
 
+		final String pathKey = AmazonS3Utils.getS3Key(normalPath);
 		final List<String> subGroups = new ArrayList<>();
-		final String prefix = removeLeadingSlash(addTrailingSlash(normalPath));
+		final String prefix = removeLeadingSlash(addTrailingSlash(pathKey));
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
 				.withBucketName(bucketName)
 				.withPrefix(prefix)
@@ -434,7 +454,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			return;
 
 		// remove bucket when deleting "/"
-		if (normalPath.equals(normalize("/"))) {
+		if (AmazonS3Utils.getS3Key(normalPath).equals(normalize("/"))) {
 
 			// need to delete all objects before deleting the bucket
 			// see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/delete-bucket.html
@@ -460,14 +480,13 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			return;
 		}
 
-		final String path = removeLeadingSlash(normalPath);
-
-		if (!path.endsWith("/")) {
+		final String key = removeLeadingSlash(AmazonS3Utils.getS3Key(normalPath));
+		if (!key.endsWith("/")) {
 			s3.deleteObjects(new DeleteObjectsRequest(bucketName)
-					.withKeys(path));
+					.withKeys(key));
 		}
 
-		final String prefix = addTrailingSlash(path);
+		final String prefix = addTrailingSlash(key);
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
 				.withBucketName(bucketName)
 				.withPrefix(prefix);

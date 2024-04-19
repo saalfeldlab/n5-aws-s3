@@ -35,9 +35,11 @@ public class AmazonS3UtilsTest {
 		for (String prefix : prefixes)
 			for (String bucket : buckets)
 				for (String path : paths) {
-					URI uri = new URI(prefix + bucket + "/" + path);
+					String uriString = prefix + bucket + "/" + path;
+					URI uri = new URI(uriString);
 					assertEquals("bucket from uri", bucket, AmazonS3Utils.getS3Bucket(uri));
 					assertEquals("key from uri", path, AmazonS3Utils.getS3Key(uri));
+					AmazonS3Utils.createS3(uriString);
 				}
 
 	}

@@ -1,5 +1,14 @@
 package org.janelia.saalfeldlab.n5.s3;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.annotation.Nullable;
+
+import org.janelia.saalfeldlab.n5.N5Exception;
+
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -12,15 +21,6 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
-import org.janelia.saalfeldlab.n5.N5Exception;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.annotation.Nullable;
 
 public class AmazonS3Utils {
 	public static final Pattern AWS_ENDPOINT_PATTERN = Pattern.compile("^(.+\\.)?(s3\\..*amazonaws\\.com)", Pattern.CASE_INSENSITIVE);
@@ -108,7 +108,7 @@ public class AmazonS3Utils {
 			if (!s3Anonymous)
 				return new DefaultAWSCredentialsProviderChain();
 			else
-				return new AWSStaticCredentialsProvider(new AnonymousAWSCredentials());
+				return null;
 		}
 	}
 
@@ -170,7 +170,9 @@ public class AmazonS3Utils {
 		if (!isAmazon)
 			builder.withPathStyleAccessEnabled(true);
 
-		if (credentialsProvider != null)
+		if (credentialsProvider == null)
+			builder.withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()));
+		else
 			builder.withCredentials(credentialsProvider);
 
 		if (endpointConfiguration != null)
@@ -180,9 +182,9 @@ public class AmazonS3Utils {
 		else
 			builder.withRegion("us-east-1");
 
-		AmazonS3 s3 = builder.build();
+		final AmazonS3 s3 = builder.build();
 		// try to listBucket if we are anonymous, if we cannot, don't use anonymous.
-		if (credentialsProvider != null && AmazonS3Utils.areAnonymous(credentialsProvider)) {
+		if (credentialsProvider == null) {
 
 			// I initially tried checking whether the bucket exists, but
 			// that, apparently, returns even when the client does not have access

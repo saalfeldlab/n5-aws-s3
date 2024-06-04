@@ -8,7 +8,6 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.google.common.collect.Maps;
 import org.junit.Test;
 
 public class AmazonS3UtilsTest {
@@ -17,26 +16,26 @@ public class AmazonS3UtilsTest {
 	public void testUriParsing() throws URISyntaxException {
 
 		// dummy client
-		String[] prefixes = new String[]{
+		final String[] prefixes = new String[]{
 				"s3://",
 				"https://s3-eu-west-1.amazonaws.com/",
 				"http://localhost:8001/",
 		};
 
-		String[] buckets = new String[]{
+		final String[] buckets = new String[]{
 				"zarr-n5-demo",
 				"static.wk.org"};
 
-		String[] paths = new String[]{
+		final String[] paths = new String[]{
 				"",
 				"foo.zarr",
 				"data/sample"};
 
-		for (String prefix : prefixes)
-			for (String bucket : buckets)
-				for (String path : paths) {
-					String uriString = prefix + bucket + "/" + path;
-					URI uri = new URI(uriString);
+		for (final String prefix : prefixes)
+			for (final String bucket : buckets)
+				for (final String path : paths) {
+					final String uriString = prefix + bucket + "/" + path;
+					final URI uri = new URI(uriString);
 					assertEquals("bucket from uri", bucket, AmazonS3Utils.getS3Bucket(uri));
 					assertEquals("key from uri", path, AmazonS3Utils.getS3Key(uri));
 					AmazonS3Utils.createS3(uriString);
@@ -87,9 +86,9 @@ public class AmazonS3UtilsTest {
 		keyToTests.put("a", onePartKeyNoSlashTests);
 		keyToTests.put("a/b/c/d", multiPartKeyNoSlashTests);
 
-		for (Map.Entry<String, String[]> tests : keyToTests.entrySet()) {
+		for (final Map.Entry<String, String[]> tests : keyToTests.entrySet()) {
 			final String expectedKey = tests.getKey();
-			for (String uri : tests.getValue()) {
+			for (final String uri : tests.getValue()) {
 				assertEquals(bucketName, AmazonS3Utils.getS3Bucket(uri));
 				assertEquals("Unexpected key for " + uri, expectedKey, AmazonS3Utils.getS3Key(uri));
 			}

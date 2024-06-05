@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 
 import org.janelia.saalfeldlab.n5.N5Exception;
 
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -117,7 +118,14 @@ public class AmazonS3Utils {
 		return createS3(uri, (String)null, null, null);
 	}
 
-	public static AmazonS3 createS3(final String uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials, @Nullable String region) {
+	public static AmazonS3 createS3(final String uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials,
+			@Nullable String region) {
+
+		return createS3(uri, s3Endpoint, s3Credentials, null, region);
+	}
+
+	public static AmazonS3 createS3(final String uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials,
+			@Nullable ClientConfiguration clientConfiguration, @Nullable String region) {
 
 		try {
 			final AmazonS3URI s3Uri = new AmazonS3URI(uri);
@@ -134,13 +142,20 @@ public class AmazonS3Utils {
 		}
 	}
 
-	public static AmazonS3 createS3(final AmazonS3URI s3Uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials, @Nullable final String region) {
+	public static AmazonS3 createS3(final AmazonS3URI s3Uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials,
+			@Nullable final String region) {
+
+		return createS3(s3Uri, s3Endpoint, s3Credentials, null, region);
+	}
+
+	public static AmazonS3 createS3(final AmazonS3URI s3Uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials,
+			@Nullable ClientConfiguration clientConfiguration, @Nullable final String region) {
 
 		AwsClientBuilder.EndpointConfiguration endpointConfiguration = null;
 		if (!S3_SCHEME.matcher(s3Uri.getURI().getScheme()).matches()) {
 			endpointConfiguration = createEndpointConfiguration(s3Uri, s3Endpoint);
 		}
-		return createS3(s3Uri.getBucket(), s3Credentials, endpointConfiguration, getS3Region(s3Uri, region));
+		return createS3(s3Uri.getBucket(), s3Credentials, endpointConfiguration, clientConfiguration, getS3Region(s3Uri, region));
 	}
 
 	public static AwsClientBuilder.EndpointConfiguration createEndpointConfiguration(final AmazonS3URI s3Uri, @Nullable final String s3Endpoint) {
@@ -164,6 +179,16 @@ public class AmazonS3Utils {
 			@Nullable final AwsClientBuilder.EndpointConfiguration endpointConfiguration,
 			@Nullable final Regions region) {
 
+		return createS3(bucketName, credentialsProvider, endpointConfiguration, null, region);
+	}
+
+	public static AmazonS3 createS3(
+			final String bucketName,
+			@Nullable final AWSCredentialsProvider credentialsProvider,
+			@Nullable final AwsClientBuilder.EndpointConfiguration endpointConfiguration,
+			@Nullable final ClientConfiguration clientConfiguration,
+			@Nullable final Regions region) {
+
 		final boolean isAmazon = endpointConfiguration == null || AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(endpointConfiguration.getServiceEndpoint()).find();
 		final AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
 
@@ -174,6 +199,9 @@ public class AmazonS3Utils {
 			builder.withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()));
 		else
 			builder.withCredentials(credentialsProvider);
+
+		if (clientConfiguration != null)
+			builder.withClientConfiguration(clientConfiguration);
 
 		if (endpointConfiguration != null)
 			builder.withEndpointConfiguration(endpointConfiguration);

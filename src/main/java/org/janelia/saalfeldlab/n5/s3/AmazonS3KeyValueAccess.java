@@ -273,7 +273,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean exists(final String normalPath) {
 
-		return isDirectory(normalPath) || isFile(normalPath);
+		return isFile(normalPath) || isDirectory(normalPath);
 	}
 
 	private ListObjectsV2Result queryPrefix(final String prefix) {
@@ -396,10 +396,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 	private String[] list(final String normalPath, final boolean onlyDirectories) {
 
-		if (!isDirectory(normalPath)) {
-			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
-		}
-
 		final String pathKey = AmazonS3Utils.getS3Key(normalPath);
 		final List<String> subGroups = new ArrayList<>();
 		final String prefix = removeLeadingSlash(addTrailingSlash(pathKey));
@@ -407,9 +403,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				.withBucketName(bucketName)
 				.withPrefix(prefix)
 				.withDelimiter("/");
-		ListObjectsV2Result objectsListing;
+		ListObjectsV2Result objectsListing = s3.listObjectsV2(listObjectsRequest);
+		if (objectsListing.getKeyCount() <= 0)
+			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
 		do {
-			objectsListing = s3.listObjectsV2(listObjectsRequest);
 			for (final String commonPrefix : objectsListing.getCommonPrefixes()) {
 				if (!onlyDirectories || commonPrefix.endsWith("/")) {
 					final String relativePath = relativize(commonPrefix, prefix);
@@ -418,6 +415,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				}
 			}
 			listObjectsRequest.setContinuationToken(objectsListing.getNextContinuationToken());
+			if (objectsListing.isTruncated())
+				objectsListing = s3.listObjectsV2(listObjectsRequest);
 		} while (objectsListing.isTruncated());
 		return subGroups.toArray(new String[subGroups.size()]);
 	}

@@ -35,6 +35,22 @@ jobs:
           repository: saalfeldlab/n5-universe
           path: n5-universe
 
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install blosc (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          pip install blosc --no-input --target n5-universe/src/test/resources
+          mv n5-universe/src/test/resources/bin/* n5-universe/src/test/resources
+      - name: Install blosc (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          pip install blosc --no-input --target n5-universe/src/test/resources
+          mv n5-universe/src/test/resources/lib64/* n5-universe/src/test/resources
+
       - name: Get version from Maven and Replace
         run: |
           version=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)

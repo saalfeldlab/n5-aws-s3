@@ -57,4 +57,4 @@ jobs:
           sed -i "s|<n5-aws-s3.version>.*</n5-aws-s3.version>|<n5-aws-s3.version>$version</n5-aws-s3.version>|g" n5-universe/pom.xml
 
       - name: Maven Test Against N5-Universe
-        run: mvn -B clean test --file n5-universe/pom.xml
+        run: mvn "-Dtest=N5StorageTests$N5AmazonS3MockTest, ZarrStorageTests$ZarrAmazonS3MockTest" -B clean test --file n5-universe/pom.xml

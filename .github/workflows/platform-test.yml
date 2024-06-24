@@ -27,4 +27,18 @@ jobs:
           distribution: 'zulu'
           cache: 'maven'
       - name: Maven Test
-        run: mvn -B clean test --file pom.xml
+        run: mvn -B clean install --file pom.xml
+
+      - name: Checkout n5-universe Repository
+        uses: actions/checkout@v2
+        with:
+          repository: <username>/n5-universe
+          path: n5-universe
+
+      - name: Get version from Maven and Replace
+        run: |
+          version=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)
+          sed -i "s|<n5-aws-s3.version>.*</n5-aws-s3.version>|<n5-aws-s3.version>$version</n5-aws-s3.version>|g" n5-universe/pom.xml
+
+      - name: Maven Test Against N5-Universe
+        run: mvn -B clean test --file n5-universe/pom.xml

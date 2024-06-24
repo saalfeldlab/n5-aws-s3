@@ -32,7 +32,7 @@ jobs:
       - name: Checkout n5-universe Repository
         uses: actions/checkout@v2
         with:
-          repository: <username>/n5-universe
+          repository: saalfeldlab/n5-universe
           path: n5-universe
 
       - name: Get version from Maven and Replace

@@ -120,7 +120,7 @@
 
 		<s3mock_2.12.version>0.2.5</s3mock_2.12.version>
 		<jaxb-api.version>2.2.2</jaxb-api.version>
-		<n5.version>3.2.0</n5.version>
+		<n5.version>3.2.1-SNAPSHOT</n5.version>
 	</properties>
 
 	<dependencies>

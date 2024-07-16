@@ -47,7 +47,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.amazonaws.services.s3.AmazonS3URI;
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.services.s3.model.S3Object;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
@@ -602,7 +603,15 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		@Override
 		public InputStream newInputStream() {
 
-			final S3ObjectInputStream in = s3.getObject(bucketName, path).getObjectContent();
+			final S3Object object;
+			try {
+				object = s3.getObject(bucketName, path);
+			} catch (final AmazonServiceException e) {
+				if (e.getStatusCode() == 404)
+					throw new N5Exception.N5NoSuchKeyException("No such key", e);
+				throw e;
+			}
+			final S3ObjectInputStream in = object.getObjectContent();
 			final S3ObjectInputStreamDrain s3in = new S3ObjectInputStreamDrain(in);
 			synchronized (resources) {
 				resources.add(s3in);

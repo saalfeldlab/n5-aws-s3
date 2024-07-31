@@ -47,25 +47,24 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.services.s3.model.S3Object;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5URI;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Region;
+import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.amazonaws.services.s3.waiters.HeadObjectFunction;
 
 public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
@@ -77,7 +76,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		try {
 			return N5URI.encodeAsUri(uri);
-		} catch (URISyntaxException e) {
+		} catch (final URISyntaxException e) {
 			throw new N5Exception("Container location " + uri + " is an invalid URI", e);
 		}
 	}
@@ -147,7 +146,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			final String scheme = uri.getScheme();
 			if (scheme != null && !scheme.isEmpty())
 				key = AmazonS3Utils.getS3Key(uri);
-		} catch (Throwable ignore) {}
+		} catch (final Throwable ignore) {}
 
 		final String[] baseComponents = removeLeadingSlash(key).split("/");
 		if (baseComponents.length <= 1)
@@ -183,7 +182,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		try {
 			return uriResolve(uri, compose(components)).toString();
-		} catch (URISyntaxException x) {
+		} catch (final URISyntaxException x) {
 			throw new IllegalArgumentException(x.getMessage(), x);
 		}
 	}
@@ -277,6 +276,12 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		return isFile(normalPath) || isDirectory(normalPath);
 	}
 
+	@Override
+	public long size(final String normalPath) throws IOException {
+
+		return s3.getObjectMetadata(bucketName, normalPath).getContentLength();
+	}
+
 	private ListObjectsV2Result queryPrefix(final String prefix) {
 
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
@@ -296,7 +301,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		try {
 			return s3.doesObjectExist(bucketName, key);
-		} catch (Throwable e) {
+		} catch (final Throwable e) {
 			return false;
 		}
 	}
@@ -383,10 +388,26 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	}
 
 	@Override
+	public LockedChannel lockForReading(final String normalPath, final long startByte, final long numBytes)
+			throws IOException {
+
+		final String key = AmazonS3Utils.getS3Key(normalPath);
+		return new S3ObjectChannel(removeLeadingSlash(key), true, startByte, numBytes);
+	}
+
+	@Override
 	public LockedChannel lockForWriting(final String normalPath) {
 
 		final String key = AmazonS3Utils.getS3Key(normalPath);
 		return new S3ObjectChannel(removeLeadingSlash(key), false);
+	}
+
+	@Override
+	public LockedChannel lockForWriting(final String normalPath, final long startByte, final long numBytes)
+			throws IOException {
+
+		final String key = AmazonS3Utils.getS3Key(normalPath);
+		return new S3ObjectChannel(removeLeadingSlash(key), false, startByte, numBytes);
 	}
 
 	@Override
@@ -584,13 +605,24 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	private class S3ObjectChannel implements LockedChannel {
 
 		protected final String path;
-		final boolean readOnly;
+		protected ObjectMetadata objectMetadata;
+		protected final boolean readOnly;
+		protected final long startByte, size;
+
 		private final ArrayList<Closeable> resources = new ArrayList<>();
 
-		protected S3ObjectChannel(final String path, final boolean readOnly) {
+		protected S3ObjectChannel(final String path, final boolean readOnly, final long startByte,
+				final long size) {
 
 			this.path = path;
 			this.readOnly = readOnly;
+			this.startByte = startByte;
+			this.size = size;
+		}
+
+		protected S3ObjectChannel(final String path, final boolean readOnly) {
+
+			this(path, readOnly, 0, Long.MAX_VALUE);
 		}
 
 		private void checkWritable() {
@@ -601,11 +633,27 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 
 		@Override
+		public long size() throws IOException {
+
+			// If the object has already be opened, get the size from its metadata,
+			// otherwise send a request
+			return objectMetadata != null ? objectMetadata.getContentLength() : AmazonS3KeyValueAccess.this.size(path);
+		}
+
+		@Override
 		public InputStream newInputStream() {
 
 			final S3Object object;
 			try {
-				object = s3.getObject(bucketName, path);
+				final GetObjectRequest request = new GetObjectRequest(bucketName, path);
+				if (startByte > 0)
+					if (size == Long.MAX_VALUE)
+						request.setRange(startByte, startByte + size - 1);
+					else
+						request.setRange(startByte);
+
+				object = s3.getObject(request);
+				objectMetadata = object.getObjectMetadata();
 			} catch (final AmazonServiceException e) {
 				if (e.getStatusCode() == 404)
 					throw new N5Exception.N5NoSuchKeyException("No such key", e);
@@ -633,6 +681,34 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		public OutputStream newOutputStream() {
 
 			checkWritable();
+
+			byte[] existingData = null;
+			final boolean partialWrite = (startByte > 0 || size < Long.MAX_VALUE);
+			if (partialWrite) {
+				// get a new channel and read the whole object
+				try (final S3ObjectChannel readChannel = new S3ObjectChannel(path, true)) {
+					final InputStream is = readChannel.newInputStream();
+					final long sz = readChannel.size();
+					existingData = new byte[(int)sz];
+					is.read(existingData);
+					is.close();
+				} catch (final N5Exception.N5NoSuchKeyException ignore) {
+					// key doesn't exist
+				} catch (final IOException e) {
+					throw new N5Exception.N5IOException("Error reading from " + path + " for partial write.", e);
+				}
+
+				// make an partial writer over the existing data
+				if (existingData != null) {
+					final S3PartialOutputStream os = new S3PartialOutputStream(startByte, size, existingData);
+					synchronized (resources) {
+						resources.add(os);
+					}
+					return os;
+				}
+
+			}
+
 			final S3OutputStream s3Out = new S3OutputStream();
 			synchronized (resources) {
 				resources.add(s3Out);
@@ -661,10 +737,16 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			}
 		}
 
+		/**
+		 * S3 does not support partial writes. If a partial write is requested, read the entire object, overwrite the
+		 * relevant range, then re-write the entire new object to s3.
+		 *
+		 * TODO look into multipart uploads https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html
+		 */
 		final class S3OutputStream extends OutputStream {
-			private final ByteArrayOutputStream buf = new ByteArrayOutputStream();
 
 			private boolean closed = false;
+			private final ByteArrayOutputStream buf = new ByteArrayOutputStream();
 
 			@Override
 			public void write(final byte[] b, final int off, final int len) {
@@ -691,6 +773,50 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 					}
 					buf.close();
 				}
+			}
+		}
+
+		/**
+		 * S3 does not support partial writes. If a partial write is requested, read the entire object, overwrite the
+		 * relevant range, then re-write the entire new object to s3.
+		 *
+		 * TODO look into multipart uploads https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html
+		 */
+		final class S3PartialOutputStream extends OutputStream {
+
+			private long position;
+			private final byte[] data;
+
+			public S3PartialOutputStream(long startByte, long size, final byte[] data) {
+
+				// TODO size does nothing - is this okay?
+				position = startByte;
+				this.data = data;
+			}
+
+			@Override
+			public void write(final byte[] b, final int off, final int len) {
+
+				System.arraycopy(b, 0, data, (int)(position + off), len);
+				position += off;
+			}
+
+			@Override
+			public void write(final int b) {
+
+				data[(int)position] = (byte)b;
+				position++;
+			}
+
+			@Override
+			public synchronized void close() throws IOException {
+
+				final ObjectMetadata objectMetadata = new ObjectMetadata();
+				objectMetadata.setContentLength(data.length);
+				try (final InputStream is = new ByteArrayInputStream(data)) {
+					s3.putObject(bucketName, path, is, objectMetadata);
+				}
+
 			}
 		}
 	}

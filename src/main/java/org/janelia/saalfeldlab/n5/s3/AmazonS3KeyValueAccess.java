@@ -73,6 +73,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	private final URI containerURI;
 	private final String bucketName;
 
+	private final boolean createBucket;
+	private Boolean bucketCheckedAndExists = null;
+
 	private static URI uncheckedContainterLocationStringToURI(String uri) {
 
 		try {
@@ -119,6 +122,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		this.containerURI = containerURI;
 
 		this.bucketName = AmazonS3Utils.getS3Bucket(containerURI);
+		this.createBucket = createBucket;
 
 		if (!s3.doesBucketExistV2(bucketName)) {
 			if (createBucket) {
@@ -134,6 +138,38 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 						"Bucket " + bucketName + " does not exist, and you told me not to create one.");
 			}
 		}
+	}
+
+	private boolean bucketExists() {
+		if (bucketCheckedAndExists != null)
+			return bucketCheckedAndExists;
+
+		bucketCheckedAndExists = s3.doesBucketExistV2(bucketName);
+		return bucketCheckedAndExists;
+	}
+
+	private void createBucket() {
+
+		if (!createBucket)
+			throw new N5Exception("Create Bucket Not Allowed");
+
+		if (bucketExists())
+			return;
+
+
+		Region region;
+		try {
+			region = s3.getRegion();
+		} catch (final IllegalStateException e) {
+			region = Region.US_Standard;
+		}
+		try {
+			s3.createBucket(new CreateBucketRequest(bucketName, region));
+			bucketCheckedAndExists = true;
+		} catch (Exception e) {
+			throw new N5Exception("Could not create bucket " + bucketName, e);
+		}
+
 	}
 
 	@Override
@@ -431,6 +467,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public void createDirectories(final String normalPath) {
 
+		if (!bucketExists() && createBucket){
+			createBucket();
+		}
+
 		String path = "";
 		for (final String component : components(removeLeadingSlash(normalPath))) {
 			path = addTrailingSlash(compose(path, component));
@@ -607,7 +647,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			try {
 				object = s3.getObject(bucketName, path);
 			} catch (final AmazonServiceException e) {
-				if (e.getStatusCode() == 404)
+				if (e.getStatusCode() == 404 || e.getStatusCode() == 403)
 					throw new N5Exception.N5NoSuchKeyException("No such key", e);
 				throw e;
 			}

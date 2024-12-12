@@ -27,8 +27,9 @@ public class AmazonS3Utils {
 	public static final Pattern AWS_ENDPOINT_PATTERN = Pattern.compile("^(.+\\.)?(s3\\..*amazonaws\\.com)", Pattern.CASE_INSENSITIVE);
 	public final static Pattern S3_SCHEME = Pattern.compile("s3", Pattern.CASE_INSENSITIVE);
 
-	private AmazonS3Utils() {
+	private static final String DISABLE_WARNING_KEY = "aws.java.v1.disableDeprecationAnnouncement";
 
+	private AmazonS3Utils() {
 	}
 
 	public static String getS3Bucket(final String uri) {
@@ -102,14 +103,30 @@ public class AmazonS3Utils {
 
 	public static AWSCredentialsProvider getS3Credentials(final AWSCredentials s3Credentials, final boolean s3Anonymous) {
 
+		/*
+		 *  TODO necessary until we update to AWS SDK (2.x)
+		 *  see https://github.com/saalfeldlab/n5-aws-s3/issues/28
+		 */
+		final String initialDisableWarningPropertyValue = System.getProperty(DISABLE_WARNING_KEY);
+		if( initialDisableWarningPropertyValue == null)
+			System.setProperty(DISABLE_WARNING_KEY, "true");
+
 		if (s3Credentials != null) {
-			return new AWSStaticCredentialsProvider(s3Credentials);
+			final AWSStaticCredentialsProvider provider = new AWSStaticCredentialsProvider(s3Credentials);
+			resetDisableWarningValue(initialDisableWarningPropertyValue);
+			return provider;
 		} else {
 			// if not anonymous, try finding credentials
-			if (!s3Anonymous)
-				return new DefaultAWSCredentialsProviderChain();
+			if (!s3Anonymous) {
+				final DefaultAWSCredentialsProviderChain provider = new DefaultAWSCredentialsProviderChain();
+				resetDisableWarningValue(initialDisableWarningPropertyValue);
+				return provider;
+			}
 			else
+			{
+				resetDisableWarningValue(initialDisableWarningPropertyValue);
 				return null;
+			}
 		}
 	}
 
@@ -190,6 +207,15 @@ public class AmazonS3Utils {
 			@Nullable final Regions region) {
 
 		final boolean isAmazon = endpointConfiguration == null || AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(endpointConfiguration.getServiceEndpoint()).find();
+
+		/*
+		 *  TODO necessary until we update to AWS SDK (2.x)
+		 *  see https://github.com/saalfeldlab/n5-aws-s3/issues/28
+		 */
+		final String initialDisableWarningPropertyValue = System.getProperty(DISABLE_WARNING_KEY);
+		if( initialDisableWarningPropertyValue == null)
+			System.setProperty(DISABLE_WARNING_KEY, "true");
+
 		final AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
 
 		if (!isAmazon)
@@ -220,10 +246,19 @@ public class AmazonS3Utils {
 				// bucket not detected with anonymous credentials, try detecting credentials
 				// and return it even if it can't detect the bucket, since there's nothing else to do
 				builder.withCredentials(new DefaultAWSCredentialsProviderChain());
+				resetDisableWarningValue(initialDisableWarningPropertyValue);
 				return builder.build();
 			}
 		}
+
+		resetDisableWarningValue(initialDisableWarningPropertyValue);
 		return s3;
+	}
+
+	private static void resetDisableWarningValue(final String initialDisableWarningPropertyValue) {
+
+		if (initialDisableWarningPropertyValue == null)
+			System.clearProperty(DISABLE_WARNING_KEY);
 	}
 
 	private static boolean canListBucket(final AmazonS3 s3, final String bucket) {

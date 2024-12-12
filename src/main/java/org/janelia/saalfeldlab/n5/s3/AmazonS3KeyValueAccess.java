@@ -141,11 +141,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	}
 
 	private boolean bucketExists() {
-		if (bucketCheckedAndExists != null)
-			return bucketCheckedAndExists;
 
-		bucketCheckedAndExists = s3.doesBucketExistV2(bucketName);
-		return bucketCheckedAndExists;
+		return bucketCheckedAndExists = bucketCheckedAndExists != null
+				? bucketCheckedAndExists
+				: s3.doesBucketExistV2(bucketName);
 	}
 
 	private void createBucket() {
@@ -155,7 +154,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		if (bucketExists())
 			return;
-
 
 		Region region;
 		try {
@@ -170,6 +168,21 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			throw new N5Exception("Could not create bucket " + bucketName, e);
 		}
 
+	}
+
+	private void deleteBucket() {
+		if (!createBucket)
+			throw new N5Exception("Delete Bucket Not Allowed");
+
+		if (!bucketExists())
+			return;
+
+		try {
+			s3.deleteBucket(bucketName);
+			bucketCheckedAndExists = false;
+		} catch (Exception e) {
+			throw new N5Exception("Could not delete bucket " + bucketName, e);
+		}
 	}
 
 	@Override
@@ -516,7 +529,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				}
 			}
 
-			s3.deleteBucket(bucketName);
+			deleteBucket();
 			return;
 		}
 

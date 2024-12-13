@@ -73,6 +73,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	private final URI containerURI;
 	private final String bucketName;
 
+	private final boolean createBucket;
+	private Boolean bucketCheckedAndExists = null;
+
 	private static URI uncheckedContainterLocationStringToURI(String uri) {
 
 		try {
@@ -119,6 +122,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		this.containerURI = containerURI;
 
 		this.bucketName = AmazonS3Utils.getS3Bucket(containerURI);
+		this.createBucket = createBucket;
 
 		if (!s3.doesBucketExistV2(bucketName)) {
 			if (createBucket) {
@@ -133,6 +137,51 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				throw new N5Exception.N5IOException(
 						"Bucket " + bucketName + " does not exist, and you told me not to create one.");
 			}
+		}
+	}
+
+	private boolean bucketExists() {
+
+		return bucketCheckedAndExists = bucketCheckedAndExists != null
+				? bucketCheckedAndExists
+				: s3.doesBucketExistV2(bucketName);
+	}
+
+	private void createBucket() {
+
+		if (!createBucket)
+			throw new N5Exception("Create Bucket Not Allowed");
+
+		if (bucketExists())
+			return;
+
+		Region region;
+		try {
+			region = s3.getRegion();
+		} catch (final IllegalStateException e) {
+			region = Region.US_Standard;
+		}
+		try {
+			s3.createBucket(new CreateBucketRequest(bucketName, region));
+			bucketCheckedAndExists = true;
+		} catch (Exception e) {
+			throw new N5Exception("Could not create bucket " + bucketName, e);
+		}
+
+	}
+
+	private void deleteBucket() {
+		if (!createBucket)
+			throw new N5Exception("Delete Bucket Not Allowed");
+
+		if (!bucketExists())
+			return;
+
+		try {
+			s3.deleteBucket(bucketName);
+			bucketCheckedAndExists = false;
+		} catch (Exception e) {
+			throw new N5Exception("Could not delete bucket " + bucketName, e);
 		}
 	}
 
@@ -431,6 +480,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public void createDirectories(final String normalPath) {
 
+		if (!bucketExists() && createBucket){
+			createBucket();
+		}
+
 		String path = "";
 		for (final String component : components(removeLeadingSlash(normalPath))) {
 			path = addTrailingSlash(compose(path, component));
@@ -476,7 +529,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				}
 			}
 
-			s3.deleteBucket(bucketName);
+			deleteBucket();
 			return;
 		}
 
@@ -607,7 +660,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			try {
 				object = s3.getObject(bucketName, path);
 			} catch (final AmazonServiceException e) {
-				if (e.getStatusCode() == 404)
+				if (e.getStatusCode() == 404 || e.getStatusCode() == 403)
 					throw new N5Exception.N5NoSuchKeyException("No such key", e);
 				throw e;
 			}

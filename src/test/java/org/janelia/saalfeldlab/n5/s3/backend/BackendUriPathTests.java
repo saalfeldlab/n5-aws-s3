@@ -1,18 +1,19 @@
 package org.janelia.saalfeldlab.n5.s3.backend;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import software.amazon.awssdk.awscore.client.builder.AwsSyncClientBuilder.EndpointConfiguration;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.s3.AmazonS3KeyValueAccess;
+import org.janelia.saalfeldlab.n5.s3.AmazonS3Utils;
 import org.janelia.saalfeldlab.n5.s3.N5AmazonS3Tests;
 import org.junit.After;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -38,13 +39,15 @@ public class BackendUriPathTests {
 	public String path;
 
 	private String bucket;
-	private AmazonS3 s3;
+	private S3Client s3;
 
 	@After
 	public void removeTestBucket() {
 
-		if (s3 != null && bucket != null && s3.doesBucketExistV2(bucket)) {
-			s3.deleteBucket(bucket);
+		// TODO consider not checking bucket existence
+		if (s3 != null && bucket != null && AmazonS3Utils.bucketExists(s3, bucket)) {
+			s3.deleteBucket(DeleteBucketRequest.builder().bucket(bucket)
+					.build());
 		}
 		s3 = null;
 		bucket = null;
@@ -54,7 +57,7 @@ public class BackendUriPathTests {
 	 * @param s3 to store in this instance for @After {@link #removeTestBucket()}
 	 * @return the bucket name, which is stored internally for removal during @After {@link #removeTestBucket()}
 	 */
-	protected String getTempBucket(final AmazonS3 s3) {
+	protected String getTempBucket(final S3Client s3) {
 
 		this.s3 = s3;
 		this.bucket = N5AmazonS3Tests.tempBucketName();
@@ -64,7 +67,7 @@ public class BackendUriPathTests {
 	@Test
 	public void testS3URIs() throws URISyntaxException {
 
-		s3 = AmazonS3ClientBuilder.standard().build();
+		s3 = S3Client.builder().build();
 
 		final URI s3URI = N5URI.encodeAsUri("s3://" + getTempBucket(s3));
 		final AmazonS3KeyValueAccess kvep = new AmazonS3KeyValueAccess(s3, s3URI, true);
@@ -75,9 +78,9 @@ public class BackendUriPathTests {
 	public void testS3URIsWithPathStyleAccess() throws URISyntaxException {
 
 		// ensure we return s3:// uris even when the client uses an amazon client with path style access
-		s3 = AmazonS3ClientBuilder.standard()
-				.withPathStyleAccessEnabled(true)
-				.withEndpointConfiguration(new EndpointConfiguration("s3.amazonaws.com", "us-east-1"))
+		s3 = S3Client.builder()
+				.pathStyleAccessEnabled(true)
+				.endpointOverride(new EndpointConfiguration("s3.amazonaws.com", "us-east-1"))
 				.build();
 
 		final URI s3URI = N5URI.encodeAsUri("s3://" + getTempBucket(s3));
@@ -99,12 +102,12 @@ public class BackendUriPathTests {
 
 	private static void testPathAtPublicURI(URI uri, String path) throws URISyntaxException {
 
-		final AmazonS3 s3;
+		final S3Client s3;
 		try {
-			s3 = AmazonS3ClientBuilder.standard()
-					.withEndpointConfiguration(new EndpointConfiguration(uri.getAuthority(), ""))
-					.withPathStyleAccessEnabled(true)
-					.withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()))
+			s3 = S3Client.builder()
+					.endpointOverride(new EndpointConfiguration(uri.getAuthority(), ""))
+					.pathStyleAccessEnabled(true)
+					.credentialsProvider(StaticCredentialsProvider.create(new AnonymousAWSCredentials()))
 					.build();
 		} catch (Exception e) {
 			Assume.assumeNoException(e);

@@ -1,7 +1,7 @@
 package org.janelia.saalfeldlab.n5.s3.backend;
 
-import com.amazonaws.auth.AnonymousAWSCredentials;
-import software.amazon.awssdk.awscore.client.builder.AwsSyncClientBuilder.EndpointConfiguration;
+import software.amazon.awssdk.regions.Region;
+
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.s3.AmazonS3KeyValueAccess;
 import org.janelia.saalfeldlab.n5.s3.AmazonS3Utils;
@@ -11,7 +11,8 @@ import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
 
@@ -79,8 +80,9 @@ public class BackendUriPathTests {
 
 		// ensure we return s3:// uris even when the client uses an amazon client with path style access
 		s3 = S3Client.builder()
-				.pathStyleAccessEnabled(true)
-				.endpointOverride(new EndpointConfiguration("s3.amazonaws.com", "us-east-1"))
+				.forcePathStyle(true)
+				.region(Region.US_EAST_1)
+				.endpointOverride(new URI("s3.amazonaws.com"))
 				.build();
 
 		final URI s3URI = N5URI.encodeAsUri("s3://" + getTempBucket(s3));
@@ -105,9 +107,9 @@ public class BackendUriPathTests {
 		final S3Client s3;
 		try {
 			s3 = S3Client.builder()
-					.endpointOverride(new EndpointConfiguration(uri.getAuthority(), ""))
-					.pathStyleAccessEnabled(true)
-					.credentialsProvider(StaticCredentialsProvider.create(new AnonymousAWSCredentials()))
+					.forcePathStyle(true)
+					.endpointOverride(uri)
+					.credentialsProvider(AnonymousCredentialsProvider.create())
 					.build();
 		} catch (Exception e) {
 			Assume.assumeNoException(e);

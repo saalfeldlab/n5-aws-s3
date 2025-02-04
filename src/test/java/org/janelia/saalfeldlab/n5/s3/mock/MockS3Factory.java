@@ -28,11 +28,12 @@
  */
 package org.janelia.saalfeldlab.n5.s3.mock;
 
-import com.amazonaws.auth.AnonymousAWSCredentials;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 import io.findify.s3mock.S3Mock;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.awscore.client.builder.AwsSyncClientBuilder;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
 public class MockS3Factory {
@@ -46,15 +47,16 @@ public class MockS3Factory {
             final S3Mock api = new S3Mock.Builder().withPort(8001).withInMemoryBackend().build();
             api.start();
 
-            final AwsSyncClientBuilder.EndpointConfiguration endpoint = new AwsSyncClientBuilder.EndpointConfiguration(
-                    "http://localhost:8001",
-                    "us-west-2");
-
-            s3 = S3Client.builder()
-					.pathStyleAccessEnabled(true)
-					.endpointOverride(endpoint)
-					.credentialsProvider(StaticCredentialsProvider.create(new AnonymousAWSCredentials()))
-					.build();
+            try {
+				s3 = S3Client.builder()
+						.forcePathStyle(true)
+						.region(Region.US_WEST_2)
+						.endpointOverride(new URI("http://localhost:8001"))
+						.credentialsProvider(AnonymousCredentialsProvider.create())
+						.build();
+			} catch (URISyntaxException e) {
+				e.printStackTrace();
+			}
         }
 
         return s3;

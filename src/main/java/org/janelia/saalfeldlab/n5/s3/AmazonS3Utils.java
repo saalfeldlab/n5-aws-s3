@@ -13,6 +13,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Uri;
+import software.amazon.awssdk.services.s3.S3Utilities;
 import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -37,6 +38,10 @@ public class AmazonS3Utils {
 	public final static Pattern S3_SCHEME = Pattern.compile("s3", Pattern.CASE_INSENSITIVE);
 
 	private static final String DISABLE_WARNING_KEY = "aws.java.v1.disableDeprecationAnnouncement";
+
+	// A Region is required, but we won't be making use of it
+	public static final S3Utilities UTIL = S3Utilities.builder()
+			.region(Region.US_EAST_1).build();
 
 	private AmazonS3Utils() {
 	}
@@ -88,7 +93,6 @@ public class AmazonS3Utils {
         }
 	}
 
-
 	public static String getS3Bucket(final String uri) {
 
 		try {
@@ -101,7 +105,7 @@ public class AmazonS3Utils {
 	public static String getS3Bucket(final URI uri) {
 
 		try {
-			final Optional<String> bucketOpt = S3Uri.builder().uri(uri).build().bucket();
+			final Optional<String> bucketOpt = UTIL.parseUri(uri).bucket();
 			if (bucketOpt.isPresent())
 				return bucketOpt.get();
 		} catch (final IllegalArgumentException e) {
@@ -124,7 +128,7 @@ public class AmazonS3Utils {
 
 		try {
 			// if key is null, return the empty string
-			final Optional<String> keyOpt = S3Uri.builder().uri(uri).build().key();
+			final Optional<String> keyOpt = UTIL.parseUri(uri).key();
 			if( keyOpt.isPresent())
 				return keyOpt.get() == null ? "" : keyOpt.get();
 		} catch (final IllegalArgumentException e) {
@@ -152,10 +156,15 @@ public class AmazonS3Utils {
 			return false;
 	}
 
-	public static Region getS3Region(final S3Uri uri, @Nullable final String region) {
+	public static Region getS3Region(final S3Uri uri, final String region) {
+
+		return getS3Region(uri, Region.of(region));
+	}
+
+	public static Region getS3Region(final S3Uri uri, final Region region) {
 
 		final Region regionFromUri = uri.region().orElse(null);
-		return regionFromUri != null ? regionFromUri : Region.of(region);
+		return regionFromUri != null ? regionFromUri : region;
 	}
 
 	public static AwsCredentialsProvider getS3Credentials(final AwsCredentials s3Credentials, final boolean s3Anonymous) {
@@ -190,7 +199,7 @@ public class AmazonS3Utils {
 			@Nullable final SdkHttpClient.Builder<?> clientBuilder, @Nullable String region) {
 
 		try {
-			S3Uri s3Uri = S3Uri.builder().uri(new URI(uri)).build();
+			final S3Uri s3Uri = AmazonS3Utils.UTIL.parseUri(new URI(uri));
 			return createS3(s3Uri, s3Endpoint, s3Credentials, region);
 		} catch (final IllegalArgumentException | URISyntaxException  e) {
 			// if AmazonS3URI does not like the form of the uri
@@ -215,10 +224,11 @@ public class AmazonS3Utils {
 			@Nullable final SdkHttpClient.Builder<?> clientBuilder, @Nullable final String region) {
 
 		// TODO: this changed a lot - validate me
+		final Region defaultRegion = region == null ? Region.US_EAST_1 : Region.of(region);
 		final Endpoint endpoint = Endpoint.builder().url(s3Uri.uri()).build();
 		final Optional<String> bucketOpt = s3Uri.bucket();
 		if (bucketOpt.isPresent())
-			return createS3(bucketOpt.get(), s3Credentials, endpoint, clientBuilder, getS3Region(s3Uri, region));
+			return createS3(bucketOpt.get(), s3Credentials, endpoint, clientBuilder, getS3Region(s3Uri, defaultRegion));
 		else
 			throw new N5Exception("Could not infer bucket name from uri: " + s3Uri);
 	}
@@ -269,7 +279,7 @@ public class AmazonS3Utils {
 		if( clientBuilder != null )
 			builder.httpClientBuilder(clientBuilder);
 
-		// TODO figuroe out endpoint
+		// TODO figure out endpoint
 //		if (endpoint != null)
 //			builder.endpointProvider(endpointProvider);
 //		else if (region != null)

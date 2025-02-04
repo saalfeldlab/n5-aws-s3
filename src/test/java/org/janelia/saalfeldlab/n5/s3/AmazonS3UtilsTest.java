@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.Test;
+
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import com.amazonaws.auth.AnonymousAWSCredentials;
 
@@ -42,7 +44,7 @@ public class AmazonS3UtilsTest {
 					assertEquals("key from uri", path, AmazonS3Utils.getS3Key(uri));
 					AmazonS3Utils.createS3(uriString,
 							null,
-							StaticCredentialsProvider.create(new AnonymousAWSCredentials()),
+							AnonymousCredentialsProvider.create(),
 							null);
 				}
 

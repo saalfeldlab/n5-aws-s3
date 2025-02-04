@@ -28,6 +28,7 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.google.gson.GsonBuilder;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
@@ -46,6 +47,8 @@ import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.model.Statement;
+
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -174,8 +177,10 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 				final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(lateinitS3, N5URI.encodeAsUri("s3://" + bucketName), false);
 				kva.delete(kva.normalize("/"));
 			} catch (Exception e) {
-				if (!lateinitS3.doesBucketExistV2(bucketName))
+
+				if( !AmazonS3Utils.bucketExists(lateinitS3, bucketName))
 					continue;
+
 				System.err.println("Exception After Tests, Could Not Delete Test Bucket:" + bucketName);
 				e.printStackTrace();
 			}
@@ -245,7 +250,8 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 					 * https://docs.aws.amazon.com/AmazonS3/latest/dev/Introduction.html#ConsistencyModel */
 					int timeoutMs = 5 * 1000;
 					while (timeoutMs > 0) {
-						if (getS3().doesBucketExistV2(bucketName))
+
+						if( AmazonS3Utils.bucketExists(lateinitS3, bucketName))
 							break;
 						else
 							try {
@@ -293,27 +299,13 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 	@Ignore("This seems not to work as expected when run in maven specifically")
 	public void testErroneousNoSuchBucketFailure() {
 
-		throw new S3Exception(
-				"This Exception should trigger a skipped test, not a failure",
-				new S3Exception("Erroneous NoSuchBucket Failure") {
-
+		throw S3Exception.builder().message("This Exception should trigger a skipped test, not a failure")
+				.cause(new AmazonS3Exception("Erroneous NoSuchBucket Failure") {
 					{
 						setErrorCode("NoSuchBucket");
 						setStatusCode(404);
 					}
-				});
-
+				}).build();
 	}
-//	public static void deleteAllTestBuckets() {
-//
-//		final AmazonS3 s3 = AmazonS3ClientBuilder.defaultClient();
-//		for (Bucket bucket : s3.listBuckets()) {
-//			final String bucketName = bucket.getName();
-//			if (bucketName.startsWith("n5-test-")) {
-//				final String containerURI = "s3://" + bucketName;
-//				final N5KeyValueWriter writer = new N5KeyValueWriter(new AmazonS3KeyValueAccess(s3, containerURI, false), containerURI, new GsonBuilder(), false);
-//				writer.remove();
-//			}
-//		}
-//	}
+
 }

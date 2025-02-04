@@ -63,6 +63,7 @@ import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -340,13 +341,15 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		try {
 			// TODO needs testing.
 			// the exception thrown may depend on permissions 
-			HeadObjectResponse objectHead = s3.headObject(
+			@SuppressWarnings("unused")
+			HeadObjectResponse headObjectResponse = s3.headObject(
 				HeadObjectRequest.builder().key(key).bucket(bucketName).build());
 
 			return true;
-
-		} catch (Throwable e) {
+		} catch( NoSuchKeyException e ) {
 			return false;
+		} catch (Throwable e) {
+			throw new N5Exception(e);
 		}
 	}
 
@@ -517,7 +520,11 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				.bucket(bucketName)
 				.key(key)
 				.build();
-			s3.deleteObject(deleteRequest);
+
+			try {
+				s3.deleteObject(deleteRequest);
+			} catch (S3Exception e) {
+			}
 		}
 
 		final String prefix = addTrailingSlash(key);
@@ -627,6 +634,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 
 		final class S3OutputStream extends OutputStream {
+
 			private final ByteArrayOutputStream buf = new ByteArrayOutputStream();
 
 			private boolean closed = false;
@@ -655,8 +663,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 					try {
 						s3.putObject(putOb, RequestBody.fromBytes(buf.toByteArray()));
-					} catch (S3Exception ignore) {
+					} catch (S3Exception e) {
+						e.printStackTrace();
 					}
+					buf.close();
 				}
 			}
 		}

@@ -2,6 +2,7 @@ package org.janelia.saalfeldlab.n5.s3;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,6 +23,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.AmazonS3URI;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
+import org.janelia.saalfeldlab.n5.N5URI;
 
 public class AmazonS3Utils {
 	public static final Pattern AWS_ENDPOINT_PATTERN = Pattern.compile("^(.+\\.)?(s3\\..*amazonaws\\.com)", Pattern.CASE_INSENSITIVE);
@@ -55,8 +57,8 @@ public class AmazonS3Utils {
 	public static String getS3Key(final String uri) {
 
 		try {
-			return getS3Key(new URI(uri));
-		} catch (final URISyntaxException e) {
+			return getS3Key(N5URI.getAsUri(uri));
+		} catch (final N5Exception e) {
 		}
 		return "";
 	}
@@ -251,8 +253,32 @@ public class AmazonS3Utils {
 			}
 		}
 
+
+		requireValidS3ServerResponse(s3);
+
 		resetDisableWarningValue(initialDisableWarningPropertyValue);
 		return s3;
+	}
+
+	private static String AMZ_REQUEST_HEADER="x-amz-request-id";
+
+	/**
+	 * Sends a `getObject` request with the `AmazonS3`. Regardless of the response, if it is a valid
+	 * AWS S3 server, we expect there to be a header with
+	 *
+	 * @param s3 to validate the server response with
+	 */
+	private static void requireValidS3ServerResponse(final AmazonS3 s3) {
+		/* TODO: Consider moving this to n5-aws-s3;
+		 * 	Check if we get an expected error response, which we should as long as the server is responding
+		 * 	with a valid S3 response. If it's an HTTP server, we should get a nonsense response.
+		 */
+		try {
+			s3.getObject(UUID.randomUUID().toString(), UUID.randomUUID().toString());
+		} catch (AmazonS3Exception e) {
+			if (!e.getHttpHeaders().containsKey(AMZ_REQUEST_HEADER))
+				throw e;
+		}
 	}
 
 	private static void resetDisableWarningValue(final String initialDisableWarningPropertyValue) {

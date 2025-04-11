@@ -192,49 +192,13 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		* use the path directly, assuming it's a path only */
 		String key = path;
 		try {
-			final URI uri = URI.create(path);
+			final URI uri = N5URI.getAsUri(path);
 			final String scheme = uri.getScheme();
 			if (scheme != null && !scheme.isEmpty())
 				key = AmazonS3Utils.getS3Key(uri);
 		} catch (Throwable ignore) {}
 
-		final String[] baseComponents = removeLeadingSlash(key).split("/");
-		if (baseComponents.length <= 1)
-			return baseComponents;
-		return Arrays.stream(baseComponents)
-				.filter(x -> !x.isEmpty())
-				.toArray(String[]::new);
-	}
-
-	@Override
-	public String compose(final String... components) {
-
-		if (components == null || components.length == 0)
-			return null;
-
-		return normalize(
-				Arrays.stream(components)
-						.filter(x -> !x.isEmpty())
-						.collect(Collectors.joining("/"))
-		);
-
-	}
-
-	/**
-	 * Compose a path from a base uri and subsequent components.
-	 *
-	 * @param uri        the base path uri to resolve the components against
-	 * @param components the components of the group path, relative to the n5 container
-	 * @return the path
-	 */
-	@Override
-	public String compose(final URI uri, final String... components) {
-
-		try {
-			return uriResolve(uri, compose(components)).toString();
-		} catch (URISyntaxException x) {
-			throw new IllegalArgumentException(x.getMessage(), x);
-		}
+		return KeyValueAccess.super.components(key);
 	}
 
 	@Override
@@ -288,26 +252,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public URI uri(final String normalPath) throws URISyntaxException {
 
-		return uriResolve(containerURI, normalPath);
-	}
-
-	private URI uriResolve(URI uri, String normalPath) throws URISyntaxException {
-
-		if (normalize(normalPath).equals(normalize("/")))
-			return uri;
-
-		final Path containerPath = Paths.get(uri.getPath());
-		final Path givenPath = Paths.get(new URI(normalPath).getPath());
-
-		final Path resolvedPath = containerPath.resolve(givenPath);
-		final String[] pathParts = new String[resolvedPath.getNameCount() + 1];
-		pathParts[0] = "/";
-		for (int i = 0; i < resolvedPath.getNameCount(); i++) {
-			pathParts[i + 1] = resolvedPath.getName(i).toString();
-		}
-		final String normalResolvedPath = compose(pathParts);
-
-		return new URI(uri.getScheme(), uri.getAuthority(), normalResolvedPath, null, null);
+		return KeyValueAccess.super.uri(compose(containerURI, normalPath));
 	}
 
 	/**
@@ -399,7 +344,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isDirectory(final String normalPath) {
 
-		final String s3Key = AmazonS3Utils.getS3Key(normalPath);
+		final String s3Key = AmazonS3Utils.getS3Key(N5URI.getAsUri(normalPath));
 		final String key = removeLeadingSlash(addTrailingSlash(s3Key));
 		if (key.equals(normalize("/"))) {
 			return s3.doesBucketExistV2(bucketName);
@@ -458,8 +403,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
 		do {
 			for (final String commonPrefix : objectsListing.getCommonPrefixes()) {
-				if (!onlyDirectories || commonPrefix.endsWith("/")) {
-					final String relativePath = relativize(commonPrefix, prefix);
+				/* may be URL-encoded, decode if necessary*/
+				final String commonPrefixDecoded = N5URI.getAsUri(commonPrefix).getPath();
+				if (!onlyDirectories || commonPrefixDecoded.endsWith("/")) {
+					final String relativePath = normalize(relativize(commonPrefixDecoded, prefix));
 					if (!relativePath.isEmpty())
 						subGroups.add(relativePath);
 				}

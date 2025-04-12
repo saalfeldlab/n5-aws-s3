@@ -40,12 +40,10 @@ import java.net.URISyntaxException;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.model.S3Object;
@@ -57,7 +55,6 @@ import org.janelia.saalfeldlab.n5.N5URI;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectListing;
@@ -65,7 +62,8 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Region;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.amazonaws.services.s3.waiters.HeadObjectFunction;
+
+import static org.janelia.saalfeldlab.n5.s3.AmazonS3Utils.requireValidS3ServerResponse;
 
 public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
@@ -111,12 +109,40 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * If the bucket does not exist and {@code createBucket==false}, the bucket will not be
 	 * created and all subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
-	 * @param s3           the s3 instance
-	 * @param containerURI the URI that points to the n5 container root.
-	 * @param createBucket whether {@code bucketName} should be created if it doesn't exist
+	 * @param s3                   the s3 instance
+	 * @param containerURI         the URI that points to the n5 container root.
+	 * @param createBucket         whether {@code bucketName} should be created if it doesn't exist
 	 * @throws N5Exception.N5IOException if the access could not be created
 	 */
 	public AmazonS3KeyValueAccess(final AmazonS3 s3, final URI containerURI, final boolean createBucket) throws N5Exception.N5IOException {
+		this(s3, containerURI, createBucket, true);
+	}
+
+	/**
+	 * Opens an {@link AmazonS3KeyValueAccess} using an {@link AmazonS3} client and a given bucket name.
+	 * <p>
+	 * If the bucket does not exist and {@code createBucket==true}, the bucket will be created.
+	 * If the bucket does not exist and {@code createBucket==false}, the bucket will not be
+	 * created and all subsequent attempts to read attributes, groups, or datasets will fail.
+	 * <p>
+	 * Additionally, this constructor allows for ensuring the S3 server response is valid
+	 * during initialization.
+	 *
+	 * @param s3                   the s3 instance
+	 * @param containerURI         the URI that points to the n5 container root.
+	 * @param createBucket         whether {@code bucketName} should be created if it doesn't exist
+	 * @param requireValidResponse whether to validate the S3 server response during initialization
+	 * @throws N5Exception.N5IOException if the access could not be created
+	 */
+	protected AmazonS3KeyValueAccess(final AmazonS3 s3, final URI containerURI, final boolean createBucket, final boolean requireValidResponse) throws N5Exception.N5IOException {
+
+		if (requireValidResponse) {
+			try {
+				requireValidS3ServerResponse(s3);
+			} catch (Exception e) {
+				throw new N5Exception.N5IOException(e);
+			}
+		}
 
 		this.s3 = s3;
 		this.containerURI = containerURI;

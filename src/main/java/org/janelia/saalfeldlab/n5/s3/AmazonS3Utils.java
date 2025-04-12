@@ -37,8 +37,8 @@ public class AmazonS3Utils {
 	public static String getS3Bucket(final String uri) {
 
 		try {
-			return getS3Bucket(new URI(uri));
-		} catch (final URISyntaxException e) {
+			return getS3Bucket(N5URI.getAsUri(uri));
+		} catch (final N5Exception e) {
 		}
 		return null;
 	}
@@ -253,9 +253,6 @@ public class AmazonS3Utils {
 			}
 		}
 
-
-		requireValidS3ServerResponse(s3);
-
 		resetDisableWarningValue(initialDisableWarningPropertyValue);
 		return s3;
 	}
@@ -268,16 +265,16 @@ public class AmazonS3Utils {
 	 *
 	 * @param s3 to validate the server response with
 	 */
-	private static void requireValidS3ServerResponse(final AmazonS3 s3) {
-		/* TODO: Consider moving this to n5-aws-s3;
-		 * 	Check if we get an expected error response, which we should as long as the server is responding
+	public static void requireValidS3ServerResponse(final AmazonS3 s3) {
+		/* Check if we get an expected error response, which we should as long as the server is responding
 		 * 	with a valid S3 response. If it's an HTTP server, we should get a nonsense response.
 		 */
 		try {
 			s3.getObject(UUID.randomUUID().toString(), UUID.randomUUID().toString());
 		} catch (AmazonS3Exception e) {
-			if (!e.getHttpHeaders().containsKey(AMZ_REQUEST_HEADER))
-				throw e;
+			if (e.getHttpHeaders().containsKey(AMZ_REQUEST_HEADER) || e.getErrorCode().equals("NoSuchBucket"))
+				return;
+			throw e;
 		}
 	}
 

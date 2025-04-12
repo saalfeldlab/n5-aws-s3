@@ -427,8 +427,13 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				.withPrefix(prefix)
 				.withDelimiter("/");
 		ListObjectsV2Result objectsListing = s3.listObjectsV2(listObjectsRequest);
-		if (objectsListing.getKeyCount() <= 0)
+		if (objectsListing.getKeyCount() <= 0) {
+			try {
+				if (s3.getObjectMetadata(bucketName, prefix).getContentLength() == 0)
+					return new String[0];
+			} catch (Exception ignore) {}
 			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
+		}
 		do {
 			for (final String commonPrefix : objectsListing.getCommonPrefixes()) {
 				/* may be URL-encoded, decode if necessary*/

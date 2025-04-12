@@ -372,7 +372,12 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		if (key.equals(normalize("/"))) {
 			return s3.doesBucketExistV2(bucketName);
 		}
-		return prefixExists(key);
+		if (prefixExists(key))
+			return true;
+		try {
+			return s3.getObjectMetadata(bucketName, key).getContentLength() == 0;
+		} catch (Exception ignore) {}
+		return false;
 	}
 
 	/**

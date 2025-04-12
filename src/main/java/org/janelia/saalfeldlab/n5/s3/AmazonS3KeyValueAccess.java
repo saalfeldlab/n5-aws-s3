@@ -74,15 +74,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	private final boolean createBucket;
 	private Boolean bucketCheckedAndExists = null;
 
-	private static URI uncheckedContainterLocationStringToURI(String uri) {
-
-		try {
-			return N5URI.encodeAsUri(uri);
-		} catch (URISyntaxException e) {
-			throw new N5Exception("Container location " + uri + " is an invalid URI", e);
-		}
-	}
-
 	/**
 	 * Opens an {@link AmazonS3KeyValueAccess} using an {@link AmazonS3} client and a given bucket name.
 	 * <p>
@@ -99,7 +90,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Deprecated
 	public AmazonS3KeyValueAccess(final AmazonS3 s3, String containerURI, final boolean createBucket) throws N5Exception.N5IOException {
 
-		this(s3, uncheckedContainterLocationStringToURI(containerURI), createBucket);
+		this(s3, N5URI.getAsUri(containerURI), createBucket);
 	}
 
 	/**
@@ -213,6 +204,12 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 	@Override
 	public String[] components(final String path) {
+
+		try {
+			N5URI.getAsUri(path);
+		} catch (N5Exception e) {
+			throw new RuntimeException(e);
+		}
 
 		/* If the path is a valid URI with a scheme then use it to get the key. Otherwise,
 		* use the path directly, assuming it's a path only */

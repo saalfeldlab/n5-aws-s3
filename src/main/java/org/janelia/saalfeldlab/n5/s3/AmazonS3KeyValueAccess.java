@@ -41,7 +41,6 @@ import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -205,11 +204,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public String[] components(final String path) {
 
-		try {
-			N5URI.getAsUri(path);
-		} catch (N5Exception e) {
-			throw new RuntimeException(e);
-		}
 
 		/* If the path is a valid URI with a scheme then use it to get the key. Otherwise,
 		* use the path directly, assuming it's a path only */
@@ -224,14 +218,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		return KeyValueAccess.super.components(key);
 	}
 
-	@Override
-	public String parent(final String path) {
-
-		final String[] components = components(path);
-		final String[] parentComponents = Arrays.copyOf(components, components.length - 1);
-
-		return compose(parentComponents);
-	}
 
 	@Override
 	public String relativize(final String path, final String base) {
@@ -369,15 +355,22 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		final String s3Key = AmazonS3Utils.getS3Key(N5URI.getAsUri(normalPath));
 		final String key = removeLeadingSlash(addTrailingSlash(s3Key));
-		if (key.equals(normalize("/"))) {
+		if (isRoot(key))
 			return s3.doesBucketExistV2(bucketName);
-		}
+
 		if (prefixExists(key))
 			return true;
+
 		try {
 			return s3.getObjectMetadata(bucketName, key).getContentLength() == 0;
 		} catch (Exception ignore) {}
+
 		return false;
+	}
+
+	private boolean isRoot(String key) {
+
+		return normalize(key).equals(normalize("/"));
 	}
 
 	/**
@@ -427,13 +420,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				.withPrefix(prefix)
 				.withDelimiter("/");
 		ListObjectsV2Result objectsListing = s3.listObjectsV2(listObjectsRequest);
-		if (objectsListing.getKeyCount() <= 0) {
-			try {
-				if (s3.getObjectMetadata(bucketName, prefix).getContentLength() == 0)
-					return new String[0];
-			} catch (Exception ignore) {}
-			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
-		}
 		do {
 			for (final String commonPrefix : objectsListing.getCommonPrefixes()) {
 				/* may be URL-encoded, decode if necessary*/
@@ -448,7 +434,18 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			if (objectsListing.isTruncated())
 				objectsListing = s3.listObjectsV2(listObjectsRequest);
 		} while (objectsListing.isTruncated());
-		return subGroups.toArray(new String[subGroups.size()]);
+
+		if (objectsListing.getKeyCount() > 0) {
+			return subGroups.toArray(new String[0]);
+		}
+
+		/* If no objects, may be an empty directory key; check before throwing */
+		try {
+			if (s3.getObjectMetadata(bucketName, prefix).getContentLength() == 0)
+				return new String[0];
+		} catch (Exception ignore) {}
+
+		throw new N5Exception.N5IOException(normalPath + " is not a valid group");
 	}
 
 	@Override
@@ -466,10 +463,12 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		String path = "";
 		for (final String component : components(removeLeadingSlash(normalPath))) {
-			path = addTrailingSlash(compose(path, component));
-			if (path.equals("/")) {
+			final String composed = addTrailingSlash(compose(path, component));
+			if (composed.equals("/"))
 				continue;
-			}
+
+			path = composed;
+
 			final ObjectMetadata metadata = new ObjectMetadata();
 			metadata.setContentLength(0);
 			s3.putObject(
@@ -487,7 +486,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			return;
 
 		// remove bucket when deleting "/"
-		if (AmazonS3Utils.getS3Key(normalPath).equals(normalize("/"))) {
+		if (isRoot(AmazonS3Utils.getS3Key(normalPath))) {
 
 			// need to delete all objects before deleting the bucket
 			// see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/delete-bucket.html

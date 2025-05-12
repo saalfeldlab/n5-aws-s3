@@ -51,9 +51,11 @@ import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5URI;
 
+import software.amazon.awssdk.core.pagination.sync.SdkIterable;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -63,6 +65,7 @@ import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -360,8 +363,12 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 */
 	private boolean prefixExists(final String prefix) {
 
-		final ListObjectsV2Response objectsListing = queryPrefix(prefix);
-		return objectsListing.keyCount() > 0;
+		try {
+			final ListObjectsV2Response objectsListing = queryPrefix(prefix);
+			return objectsListing.keyCount() > 0;
+		} catch (NoSuchBucketException e) {
+		}
+		return false;
 	}
 
 	/**
@@ -467,6 +474,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 					subGroups.add(relativePath);
 			}
 		});
+
+		if (subGroups.size() <= 0)
+			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
 
 		return subGroups.toArray(new String[subGroups.size()]);
 	}

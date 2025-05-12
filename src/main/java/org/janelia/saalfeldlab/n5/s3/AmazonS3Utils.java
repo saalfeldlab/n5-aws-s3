@@ -37,8 +37,6 @@ public class AmazonS3Utils {
 	public static final Pattern AWS_ENDPOINT_PATTERN = Pattern.compile("^(.+\\.)?(s3\\..*amazonaws\\.com)", Pattern.CASE_INSENSITIVE);
 	public final static Pattern S3_SCHEME = Pattern.compile("s3", Pattern.CASE_INSENSITIVE);
 
-	private static final String DISABLE_WARNING_KEY = "aws.java.v1.disableDeprecationAnnouncement";
-
 	// A Region is required, but we won't be making use of it
 	public static final S3Utilities UTIL = S3Utilities.builder()
 			.region(Region.US_EAST_1).build();
@@ -233,12 +231,6 @@ public class AmazonS3Utils {
 			throw new N5Exception("Could not infer bucket name from uri: " + s3Uri);
 	}
 
-	public static Endpoint createEndpointConfiguration(final S3Uri s3Uri, @Nullable final String s3Endpoint) {
-
-		// TODO this used to be move involved. check me
-		return Endpoint.builder().url(s3Uri.uri()).build();
-	}
-
 	public static S3Client createS3(
 			final String bucketName,
 			@Nullable final AwsCredentialsProvider credentialsProvider,
@@ -256,20 +248,14 @@ public class AmazonS3Utils {
 			@Nullable final Region region) {
 
 		// TODO figure this out 
-//		final boolean isAmazon = endpointProvider == null || AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(endpointConfiguration.getServiceEndpoint()).find();
-
-		/*
-		 *  TODO necessary until we update to AWS SDK (2.x)
-		 *  see https://github.com/saalfeldlab/n5-aws-s3/issues/28
-		 */
-		final String initialDisableWarningPropertyValue = System.getProperty(DISABLE_WARNING_KEY);
-		if( initialDisableWarningPropertyValue == null)
-			System.setProperty(DISABLE_WARNING_KEY, "true");
+		final boolean isAmazon = endpoint == null || AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(endpoint.url().toString()).find();
 
 		final S3ClientBuilder builder = S3Client.builder();
 
-//		if (!isAmazon)
-//			builder.forcePathStyle(true);
+		// Forcing path style is necessary for at least some non-amazon services
+		// (e.g. IDR), as of May 2025
+		if (!isAmazon)
+			builder.forcePathStyle(true);
 
 		if (credentialsProvider == null)
 			builder.credentialsProvider(AnonymousCredentialsProvider.create());
@@ -280,12 +266,12 @@ public class AmazonS3Utils {
 			builder.httpClientBuilder(clientBuilder);
 
 		// TODO figure out endpoint
-//		if (endpoint != null)
-//			builder.endpointProvider(endpointProvider);
-//		else if (region != null)
-//			builder.region(region);
-//		else
-//			builder.region(Region.US_EAST_1);
+		if (endpoint != null)
+			builder.endpointOverride(endpoint.url());
+		else if (region != null)
+			builder.region(region);
+		else
+			builder.region(Region.US_EAST_1);
 
 		final S3Client s3 = builder.build();
 		// try to listBucket if we are anonymous, if we cannot, don't use anonymous.

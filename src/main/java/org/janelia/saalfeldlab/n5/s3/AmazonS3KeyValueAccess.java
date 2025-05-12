@@ -131,6 +131,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		if (!bucketExists()) {
 			if (createBucket) {
 				s3.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
+				bucketCheckedAndExists = true;
 			} else {
 				throw new N5Exception.N5IOException(
 						"Bucket " + bucketName + " does not exist, and you told me not to create one.");
@@ -466,7 +467,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				.delimiter("/")
 				.build();
 
-		// TODO needs testing
 		s3.listObjectsV2Paginator(listObjectsV2Request).commonPrefixes().forEach(p -> {
 			if (!onlyDirectories || p.prefix().endsWith("/")) {
 				final String relativePath = relativize(p.prefix(), prefix);
@@ -475,8 +475,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			}
 		});
 
-		if (subGroups.size() <= 0)
-			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
+		if (subGroups.size() <= 0) {
+			if(!isDirectory(normalPath))
+				throw new N5Exception.N5IOException(normalPath + " is not a valid group");
+		}
 
 		return subGroups.toArray(new String[subGroups.size()]);
 	}

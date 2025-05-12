@@ -11,7 +11,7 @@
 
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>n5-aws-s3</artifactId>
-	<version>4.2.2-SNAPSHOT</version>
+	<version>5.0.0-SNAPSHOT</version>
 
 	<name>N5 AWS S3</name>
 	<description>N5 library implementation using Amazon Web Services S3 backend.</description>
@@ -118,7 +118,6 @@
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
-		<s3mock_2.12.version>0.2.5</s3mock_2.12.version>
 		<jaxb-api.version>2.2.2</jaxb-api.version>
 		<n5.version>3.3.0</n5.version>
 	</properties>
@@ -143,12 +142,6 @@
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.findify</groupId>
-			<artifactId>s3mock_2.12</artifactId>
-			<version>${s3mock_2.12.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>

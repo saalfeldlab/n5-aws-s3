@@ -28,7 +28,6 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.google.gson.GsonBuilder;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
@@ -299,13 +298,15 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 	@Ignore("This seems not to work as expected when run in maven specifically")
 	public void testErroneousNoSuchBucketFailure() {
 
+		final AwsServiceException cause = S3Exception.builder()
+				.message("Erroneous NoSuchBucket Failure")
+				.awsErrorDetails(AwsErrorDetails.builder().errorCode("NoSuchBucket").build())
+				.statusCode(404)
+				.build();
+
 		throw S3Exception.builder().message("This Exception should trigger a skipped test, not a failure")
-				.cause(new AmazonS3Exception("Erroneous NoSuchBucket Failure") {
-					{
-						setErrorCode("NoSuchBucket");
-						setStatusCode(404);
-					}
-				}).build();
+				.cause(cause)
+				.build();
 	}
 
 }

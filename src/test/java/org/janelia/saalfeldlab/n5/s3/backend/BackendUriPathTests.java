@@ -82,7 +82,7 @@ public class BackendUriPathTests {
 		s3 = S3Client.builder()
 				.forcePathStyle(true)
 				.region(Region.US_EAST_1)
-				.endpointOverride(new URI("s3.amazonaws.com"))
+				.endpointOverride(new URI("https://s3.amazonaws.com"))
 				.build();
 
 		final URI s3URI = N5URI.encodeAsUri("s3://" + getTempBucket(s3));

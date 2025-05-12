@@ -11,8 +11,6 @@ import java.util.Map;
 import org.junit.Test;
 
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import com.amazonaws.auth.AnonymousAWSCredentials;
 
 public class AmazonS3UtilsTest {
 

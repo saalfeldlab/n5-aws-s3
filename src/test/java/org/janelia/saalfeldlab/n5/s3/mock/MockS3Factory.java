@@ -31,8 +31,9 @@ package org.janelia.saalfeldlab.n5.s3.mock;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-import io.findify.s3mock.S3Mock;
-import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
@@ -44,15 +45,22 @@ public class MockS3Factory {
 
         if (s3 == null) {
 
-            final S3Mock api = new S3Mock.Builder().withPort(8001).withInMemoryBackend().build();
-            api.start();
+			final String user = System.getenv("MINIO_ROOT_USER");
+			final String pw = System.getenv("MINIO_ROOT_PASSWORD");
+			final AwsCredentialsProvider creds = new AwsCredentialsProvider() {
+
+				@Override
+				public AwsCredentials resolveCredentials() {
+					return AwsBasicCredentials.create(user, pw);
+				}
+			};
 
             try {
 				s3 = S3Client.builder()
 						.forcePathStyle(true)
 						.region(Region.US_WEST_2)
-						.endpointOverride(new URI("http://localhost:8001"))
-						.credentialsProvider(AnonymousCredentialsProvider.create())
+						.endpointOverride(new URI("http://localhost:9000"))
+						.credentialsProvider(creds)
 						.build();
 			} catch (URISyntaxException e) {
 				e.printStackTrace();

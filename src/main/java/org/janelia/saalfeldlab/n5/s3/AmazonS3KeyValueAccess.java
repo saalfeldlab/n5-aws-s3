@@ -34,11 +34,13 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -46,14 +48,20 @@ import java.util.List;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.model.S3Object;
+
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueAccessReadData;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
+import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
 import org.janelia.saalfeldlab.n5.N5URI;
+import org.janelia.saalfeldlab.n5.readdata.ReadData;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CreateBucketRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.ObjectListing;
@@ -280,6 +288,12 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		return isFile(normalPath) || isDirectory(normalPath);
 	}
 
+	@Override
+	public long size(String normalPath) throws N5NoSuchKeyException {
+
+		return s3.getObjectMetadata(bucketName, normalPath).getContentLength();
+	}
+
 	private ListObjectsV2Result queryPrefix(final String prefix) {
 
 		final ListObjectsV2Request listObjectsRequest = new ListObjectsV2Request()
@@ -391,6 +405,12 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	}
 
 	@Override
+	public ReadData createReadData(String normalPath) throws N5IOException {
+
+		return new KeyValueAccessReadData(new S3LazyRead(normalPath));
+	}
+
+	@Override
 	public LockedChannel lockForReading(final String normalPath) {
 
 		final String key = AmazonS3Utils.getS3Key(normalPath);
@@ -449,7 +469,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	}
 
 	@Override
-	public String[] list(final String normalPath) throws IOException {
+	public String[] list(final String normalPath) {
 
 		return list(normalPath, false);
 	}
@@ -616,13 +636,23 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	private class S3ObjectChannel implements LockedChannel {
 
 		protected final String path;
+		protected ObjectMetadata objectMetadata;
 		final boolean readOnly;
 		private final ArrayList<Closeable> resources = new ArrayList<>();
+		protected final long startByte, size;
 
-		protected S3ObjectChannel(final String path, final boolean readOnly) {
+		protected S3ObjectChannel(final String path, final boolean readOnly, final long startByte,
+				final long size) {
 
 			this.path = path;
 			this.readOnly = readOnly;
+			this.startByte = startByte;
+			this.size = size;
+		}
+
+		protected S3ObjectChannel(final String path, final boolean readOnly) {
+
+			this(path, readOnly, 0, Long.MAX_VALUE);
 		}
 
 		private void checkWritable() {
@@ -632,12 +662,27 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			}
 		}
 
+		private long size() {
+
+			return objectMetadata != null ? objectMetadata.getContentLength() : AmazonS3KeyValueAccess.this.size(path);
+		}
+
 		@Override
 		public InputStream newInputStream() {
 
 			final S3Object object;
 			try {
-				object = s3.getObject(bucketName, path);
+				final GetObjectRequest request = new GetObjectRequest(bucketName, path);
+
+				if (startByte > 0)
+					if (size == Long.MAX_VALUE)
+						request.setRange(startByte, startByte + size - 1);
+					else
+						request.setRange(startByte);
+
+				object = s3.getObject(request);
+				objectMetadata = object.getObjectMetadata();
+
 			} catch (final AmazonServiceException e) {
 				if (e.getStatusCode() == 404 || e.getStatusCode() == 403)
 					throw new N5Exception.N5NoSuchKeyException("No such key", e);
@@ -673,7 +718,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 
 		@Override
-		public Writer newWriter() throws IOException {
+		public Writer newWriter() {
 
 			checkWritable();
 			final OutputStreamWriter writer = new OutputStreamWriter(newOutputStream(), StandardCharsets.UTF_8);
@@ -726,4 +771,54 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			}
 		}
 	}
+
+	private class S3LazyRead implements LazyRead {
+
+		private final String normalKey;
+
+		S3LazyRead(String normalKey) {
+	        this.normalKey = normalKey;
+	    }
+
+	    @Override
+	    public long size() {
+	        return AmazonS3KeyValueAccess.this.size(normalKey);
+	    }
+
+	    @Override
+	    public ReadData materialize(final long offset, final long length) {
+
+			if (length > Integer.MAX_VALUE)
+				throw new N5Exception.N5IOException("Attempt to materialize too large data");
+
+	        try (final S3ObjectChannel s3ch = new S3ObjectChannel(normalKey, true, offset, length)) {
+
+				final long channelSize = s3ch.size();
+				if (!validBounds(channelSize, offset, length))
+					throw new IndexOutOfBoundsException();
+
+				final byte[] data = new byte[(int)length];
+				s3ch.newInputStream().read(data);
+				return ReadData.from(data);
+
+	        } catch (final NoSuchFileException e) {
+	            throw new N5NoSuchKeyException("No such file", e);
+	        } catch (IOException | UncheckedIOException e) {
+	            throw new N5Exception.N5IOException(e);
+	        }
+	    }
+	}
+
+	private static boolean validBounds(long channelSize, long offset, long length) {
+
+		if (offset < 0)
+			return false;
+		else if (channelSize > 0 && offset >= channelSize) // offset == 0 and arrayLength == 0 is okay
+			return false;
+		else if (length >= 0 && offset + length > channelSize)
+			return false;
+
+		return true;
+	}
+
 }

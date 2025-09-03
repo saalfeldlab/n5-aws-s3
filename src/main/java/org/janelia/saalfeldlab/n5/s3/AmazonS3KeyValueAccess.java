@@ -407,7 +407,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public ReadData createReadData(String normalPath) throws N5IOException {
 
-		return new KeyValueAccessReadData(new S3LazyRead(normalPath));
+		final String key = AmazonS3Utils.getS3Key(normalPath);
+		return new KeyValueAccessReadData(new S3LazyRead(removeLeadingSlash(key)));
 	}
 
 	@Override
@@ -797,9 +798,15 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				if (!validBounds(channelSize, offset, length))
 					throw new IndexOutOfBoundsException();
 
-				final byte[] data = new byte[(int)length];
-				s3ch.newInputStream().read(data);
-				return ReadData.from(data);
+				if( length < 0 ) {
+					// TODO benchmark
+					return ReadData.from(s3ch.newInputStream()).materialize();
+				}
+				else {
+					final byte[] data = new byte[(int)length];
+					s3ch.newInputStream().read(data);
+					return ReadData.from(data);
+				}
 
 	        } catch (final NoSuchFileException e) {
 	            throw new N5NoSuchKeyException("No such file", e);

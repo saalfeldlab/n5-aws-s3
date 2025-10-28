@@ -43,10 +43,14 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import org.apache.commons.io.IOUtils;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueAccessReadData;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5URI;
@@ -61,6 +65,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.Region;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import org.janelia.saalfeldlab.n5.readdata.ReadData;
 
 import static org.janelia.saalfeldlab.n5.s3.AmazonS3Utils.requireValidS3ServerResponse;
 
@@ -218,7 +223,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		return KeyValueAccess.super.components(key);
 	}
 
-
 	@Override
 	public String relativize(final String path, final String base) {
 
@@ -278,6 +282,21 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public boolean exists(final String normalPath) {
 
 		return isFile(normalPath) || isDirectory(normalPath);
+	}
+
+
+	@Override public long size(String normalPath) throws N5Exception.N5NoSuchKeyException {
+
+
+		final String key = removeLeadingSlash(AmazonS3Utils.getS3Key(normalPath));
+
+		ObjectMetadata metadata = rethrowS3Exceptions(() -> s3.getObjectMetadata(bucketName, key));
+		//TODO Caleb: `getContentLength()` doc indicated it's a required field. For reading, that means this should always be a valid
+		//	value, but importantly, for writing, it means we should set the value when writing. The S3 API is smart enough to handle
+		//	getting the size automatically if we are writing from a file, but when writing from a stream, if we don't provide the size ahead of
+		//	time, it will buffer the content before sending it to S3 to get the size. That's convenient, but for performance reasons,
+		//	we should alwways set the size before writing (when it's known)
+		return metadata.getContentLength();
 	}
 
 	private ListObjectsV2Result queryPrefix(final String prefix) {
@@ -390,11 +409,67 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		return !key.endsWith("/") && keyExists(removeLeadingSlash(key));
 	}
 
+	@Override public ReadData createReadData(String normalPath) throws N5Exception.N5IOException {
+
+		return new KeyValueAccessReadData(new S3LazyRead(normalPath));
+	}
+
+	private <T> T rethrowS3Exceptions(Supplier<T> action) {
+		try {
+			return action.get();
+		} catch (final AmazonServiceException e) {
+			if (e.getStatusCode() == 404 || e.getStatusCode() == 403)
+				throw new N5Exception.N5NoSuchKeyException("No such key", e);
+			throw new N5Exception.N5IOException("S3 Exception", e);
+		}
+	}
+
+	private class S3LazyRead implements LazyRead {
+
+		private final String key;
+
+		S3LazyRead(final String normalizedKey) {
+			this.key = normalizedKey;
+		}
+
+		private GetObjectRequest createObjectRequest(final String s3Key, int offset, int length) {
+
+			GetObjectRequest request = new GetObjectRequest(bucketName, s3Key);
+			if (length > 0) //start and end requested
+				request.withRange(offset, offset + length - 1);
+			else if (offset > 0) // start requested only
+				request.withRange(offset);
+			return request;
+		}
+
+		@Override public ReadData materialize(long offset, long length) throws N5Exception.N5IOException {
+
+			final String s3Key = AmazonS3Utils.getS3Key(key);
+			final byte[] bytes;
+			try (
+					final S3Object s3Object = rethrowS3Exceptions(() -> s3.getObject(createObjectRequest(s3Key, (int)offset, (int)length)));
+					final S3ObjectInputStream s3InputStream = s3Object.getObjectContent();
+					final S3ObjectInputStreamDrain s3ObjectInputStreamDrain = new S3ObjectInputStreamDrain(s3InputStream);
+					) {
+				bytes = IOUtils.toByteArray(s3ObjectInputStreamDrain);
+			} catch (IOException e) {
+				throw new N5Exception.N5IOException(e);
+			}
+
+			return ReadData.from(bytes);
+		}
+
+		@Override public long size() throws N5Exception.N5IOException {
+
+			return AmazonS3KeyValueAccess.this.size(key);
+		}
+	}
+
 	@Override
 	public LockedChannel lockForReading(final String normalPath) {
 
 		final String key = AmazonS3Utils.getS3Key(normalPath);
-		return new S3ObjectChannel(removeLeadingSlash(key), true);
+		return new S3ObjectChannel(key, true);
 	}
 
 	@Override
@@ -449,7 +524,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	}
 
 	@Override
-	public String[] list(final String normalPath) throws IOException {
+	public String[] list(final String normalPath) {
 
 		return list(normalPath, false);
 	}
@@ -635,14 +710,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		@Override
 		public InputStream newInputStream() {
 
-			final S3Object object;
-			try {
-				object = s3.getObject(bucketName, path);
-			} catch (final AmazonServiceException e) {
-				if (e.getStatusCode() == 404 || e.getStatusCode() == 403)
-					throw new N5Exception.N5NoSuchKeyException("No such key", e);
-				throw e;
-			}
+			final S3Object object = rethrowS3Exceptions(() -> s3.getObject(bucketName, path));
 			final S3ObjectInputStream in = object.getObjectContent();
 			final S3ObjectInputStreamDrain s3in = new S3ObjectInputStreamDrain(in);
 			synchronized (resources) {
@@ -673,7 +741,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 
 		@Override
-		public Writer newWriter() throws IOException {
+		public Writer newWriter() {
 
 			checkWritable();
 			final OutputStreamWriter writer = new OutputStreamWriter(newOutputStream(), StandardCharsets.UTF_8);

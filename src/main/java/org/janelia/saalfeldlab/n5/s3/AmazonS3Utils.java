@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5URI;
 
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -94,8 +95,8 @@ public class AmazonS3Utils {
 	public static String getS3Bucket(final String uri) {
 
 		try {
-			return getS3Bucket(new URI(uri));
-		} catch (final URISyntaxException e) {
+			return getS3Bucket(N5URI.getAsUri(uri));
+		} catch (final N5Exception e) {
 		}
 		return null;
 	}
@@ -116,8 +117,8 @@ public class AmazonS3Utils {
 	public static String getS3Key(final String uri) {
 
 		try {
-			return getS3Key(new URI(uri));
-		} catch (final URISyntaxException e) {
+			return getS3Key(N5URI.getAsUri(uri));
+		} catch (final N5Exception e) {
 		}
 		return "";
 	}

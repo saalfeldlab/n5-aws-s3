@@ -39,28 +39,30 @@ import java.net.URISyntaxException;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueAccessReadData;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
 import org.janelia.saalfeldlab.n5.N5URI;
+import org.janelia.saalfeldlab.n5.readdata.ReadData;
 
-import software.amazon.awssdk.core.pagination.sync.SdkIterable;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CommonPrefix;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -80,15 +82,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	private final boolean createBucket;
 	private Boolean bucketCheckedAndExists = null;
 
-	private static URI uncheckedContainterLocationStringToURI(String uri) {
-
-		try {
-			return N5URI.encodeAsUri(uri);
-		} catch (URISyntaxException e) {
-			throw new N5Exception("Container location " + uri + " is an invalid URI", e);
-		}
-	}
-
 	/**
 	 * Opens an {@link AmazonS3KeyValueAccess} using an {@link S3Client} client and a given bucket name.
 	 * <p>
@@ -105,7 +98,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Deprecated
 	public AmazonS3KeyValueAccess(final S3Client s3, String containerURI, final boolean createBucket) throws N5Exception.N5IOException {
 
-		this(s3, uncheckedContainterLocationStringToURI(containerURI), createBucket);
+		this(s3, N5URI.getAsUri(containerURI), createBucket);
 	}
 
 	/**
@@ -115,9 +108,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * If the bucket does not exist and {@code createBucket==false}, the bucket will not be
 	 * created and all subsequent attempts to read attributes, groups, or datasets will fail.
 	 *
-	 * @param s3           the s3 instance
-	 * @param containerURI the URI that points to the n5 container root.
-	 * @param createBucket whether {@code bucketName} should be created if it doesn't exist
+	 * @param s3                   the s3 instance
+	 * @param containerURI         the URI that points to the n5 container root.
+	 * @param createBucket         whether {@code bucketName} should be created if it doesn't exist
 	 * @throws N5Exception.N5IOException if the access could not be created
 	 */
 	public AmazonS3KeyValueAccess(final S3Client s3, final URI containerURI, final boolean createBucket) throws N5Exception.N5IOException {
@@ -183,62 +176,18 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public String[] components(final String path) {
 
+
 		/* If the path is a valid URI with a scheme then use it to get the key. Otherwise,
 		* use the path directly, assuming it's a path only */
 		String key = path;
 		try {
-			final URI uri = URI.create(path);
+			final URI uri = N5URI.getAsUri(path);
 			final String scheme = uri.getScheme();
 			if (scheme != null && !scheme.isEmpty())
 				key = AmazonS3Utils.getS3Key(uri);
 		} catch (Throwable ignore) {}
 
-		final String[] baseComponents = removeLeadingSlash(key).split("/");
-		if (baseComponents.length <= 1)
-			return baseComponents;
-		return Arrays.stream(baseComponents)
-				.filter(x -> !x.isEmpty())
-				.toArray(String[]::new);
-	}
-
-	@Override
-	public String compose(final String... components) {
-
-		if (components == null || components.length == 0)
-			return null;
-
-		return normalize(
-				Arrays.stream(components)
-						.filter(x -> !x.isEmpty())
-						.collect(Collectors.joining("/"))
-		);
-
-	}
-
-	/**
-	 * Compose a path from a base uri and subsequent components.
-	 *
-	 * @param uri        the base path uri to resolve the components against
-	 * @param components the components of the group path, relative to the n5 container
-	 * @return the path
-	 */
-	@Override
-	public String compose(final URI uri, final String... components) {
-
-		try {
-			return uriResolve(uri, compose(components)).toString();
-		} catch (URISyntaxException x) {
-			throw new IllegalArgumentException(x.getMessage(), x);
-		}
-	}
-
-	@Override
-	public String parent(final String path) {
-
-		final String[] components = components(path);
-		final String[] parentComponents = Arrays.copyOf(components, components.length - 1);
-
-		return compose(parentComponents);
+		return KeyValueAccess.super.components(key);
 	}
 
 	@Override
@@ -283,26 +232,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public URI uri(final String normalPath) throws URISyntaxException {
 
-		return uriResolve(containerURI, normalPath);
-	}
-
-	private URI uriResolve(URI uri, String normalPath) throws URISyntaxException {
-
-		if (normalize(normalPath).equals(normalize("/")))
-			return uri;
-
-		final Path containerPath = Paths.get(uri.getPath());
-		final Path givenPath = Paths.get(new URI(normalPath).getPath());
-
-		final Path resolvedPath = containerPath.resolve(givenPath);
-		final String[] pathParts = new String[resolvedPath.getNameCount() + 1];
-		pathParts[0] = "/";
-		for (int i = 0; i < resolvedPath.getNameCount(); i++) {
-			pathParts[i + 1] = resolvedPath.getName(i).toString();
-		}
-		final String normalResolvedPath = compose(pathParts);
-
-		return new URI(uri.getScheme(), uri.getAuthority(), normalResolvedPath, null, null);
+		return KeyValueAccess.super.uri(compose(containerURI, normalPath));
 	}
 
 	/**
@@ -410,7 +340,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isDirectory(final String normalPath) {
 
-		final String s3Key = AmazonS3Utils.getS3Key(normalPath);
+		final String s3Key = AmazonS3Utils.getS3Key(N5URI.getAsUri(normalPath));
 		final String key = removeLeadingSlash(addTrailingSlash(s3Key));
 		if (key.equals(normalize("/"))) {
 			return bucketExists();
@@ -434,12 +364,85 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		final String key = AmazonS3Utils.getS3Key(normalPath);
 		return !key.endsWith("/") && keyExists(removeLeadingSlash(key));
 	}
+	
+	@Override
+	public long size(String normalPath) throws N5NoSuchKeyException {
+
+		final String key = removeLeadingSlash(AmazonS3Utils.getS3Key(normalPath));
+		
+		final HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
+				.bucket(bucketName)
+				.key(key)
+				.build();
+		
+		final HeadObjectResponse response = rethrowS3Exceptions(() -> s3.headObject(headObjectRequest));
+		return response.contentLength();
+	}
+
+	@Override public ReadData createReadData(String normalPath) throws N5Exception.N5IOException {
+
+		return new KeyValueAccessReadData(new S3LazyRead(normalPath));
+	}
+
+	private <T> T rethrowS3Exceptions(Supplier<T> action) {
+		try {
+			return action.get();
+		} catch (final NoSuchKeyException e) {
+				throw new N5Exception.N5NoSuchKeyException("No such key", e);
+		} catch (final AwsServiceException e) {
+			final int statusCode = e.awsErrorDetails().sdkHttpResponse().statusCode();
+			if (statusCode == 404 || statusCode == 403)
+				throw new N5Exception.N5NoSuchKeyException("No such key", e);
+			throw new N5Exception.N5IOException("S3 Exception", e);
+		}
+	}
+
+	private class S3LazyRead implements LazyRead {
+
+		private final String key;
+
+		S3LazyRead(final String normalizedKey) {
+			this.key = normalizedKey;
+		}
+
+		private GetObjectRequest createObjectRequest(final String s3Key, long offset, long length) {
+
+			final GetObjectRequest.Builder requestBuilder = GetObjectRequest.builder()
+					.key(s3Key)
+					.bucket(bucketName);
+
+			// Only add range header if we're doing a partial read
+			if (offset > 0 || length > 0) {
+				// HTTP Range header format: "bytes=start-end"
+				// If length is 0 or negative, read from offset to end of file
+				final String range = length > 0 
+						? String.format("bytes=%d-%d", offset, offset + length - 1)
+						: String.format("bytes=%d-", offset);
+				requestBuilder.range(range);
+			}
+
+			return requestBuilder.build();
+		}
+
+		@Override public ReadData materialize(long offset, long length) throws N5Exception.N5IOException {
+
+			final String s3Key = AmazonS3Utils.getS3Key(key);
+			final GetObjectRequest request = createObjectRequest(s3Key, offset, length);
+			final ResponseBytes<GetObjectResponse> response = rethrowS3Exceptions(() -> s3.getObject(request, ResponseTransformer.toBytes()));						
+			return ReadData.from(response.asByteArray());
+		}
+
+		@Override public long size() throws N5Exception.N5IOException {
+
+			return AmazonS3KeyValueAccess.this.size(key);
+		}
+	}
 
 	@Override
 	public LockedChannel lockForReading(final String normalPath) {
 
 		final String key = AmazonS3Utils.getS3Key(normalPath);
-		return new S3ObjectChannel(removeLeadingSlash(key), true);
+		return new S3ObjectChannel(key, true);
 	}
 
 	@Override
@@ -484,7 +487,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	}
 
 	@Override
-	public String[] list(final String normalPath) throws IOException {
+	public String[] list(final String normalPath) {
 
 		return list(normalPath, false);
 	}
@@ -492,25 +495,24 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public void createDirectories(final String normalPath) {
 
-		if (!bucketExists() && createBucket){
+		if (!bucketExists() && createBucket) {
 			createBucket();
 		}
 
 		String path = "";
 		for (final String component : components(removeLeadingSlash(normalPath))) {
-			path = addTrailingSlash(compose(path, component));
-			if (path.equals("/")) {
+			final String composed = addTrailingSlash(compose(path, component));
+			if (composed.equals("/"))
 				continue;
-			}
+		}
 
-			final PutObjectRequest putOb = PutObjectRequest.builder()
+		final PutObjectRequest putOb = PutObjectRequest.builder()
 				.bucket(bucketName)
 				.key(path)
 				.contentLength((long)0)
 				.build();
 
-			s3.putObject(putOb, RequestBody.fromBytes(new byte[0]));
-		}
+		s3.putObject(putOb, RequestBody.fromBytes(new byte[0]));
 	}
 
 	@Override
@@ -625,7 +627,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 
 		@Override
-		public Writer newWriter() throws IOException {
+		public Writer newWriter() {
 
 			checkWritable();
 			final OutputStreamWriter writer = new OutputStreamWriter(newOutputStream(), StandardCharsets.UTF_8);
@@ -683,4 +685,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			}
 		}
 	}
+
+
 }

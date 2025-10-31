@@ -2,36 +2,94 @@ package org.janelia.saalfeldlab.n5.s3;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.UUID;
-import java.util.regex.Matcher;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
 import org.janelia.saalfeldlab.n5.N5Exception;
-
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.AnonymousAWSCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.AmazonS3URI;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import org.janelia.saalfeldlab.n5.N5URI;
 
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Uri;
+import software.amazon.awssdk.services.s3.S3Utilities;
+import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.CredentialUtils;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.endpoints.Endpoint;
+import software.amazon.awssdk.http.HttpStatusCode;
+import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.utils.Validate;
+
 public class AmazonS3Utils {
+
 	public static final Pattern AWS_ENDPOINT_PATTERN = Pattern.compile("^(.+\\.)?(s3\\..*amazonaws\\.com)", Pattern.CASE_INSENSITIVE);
 	public final static Pattern S3_SCHEME = Pattern.compile("s3", Pattern.CASE_INSENSITIVE);
 
-	private static final String DISABLE_WARNING_KEY = "aws.java.v1.disableDeprecationAnnouncement";
+	// A Region is required, but we won't be making use of it
+	public static final S3Utilities UTIL = S3Utilities.builder()
+			.region(Region.US_EAST_1).build();
 
 	private AmazonS3Utils() {
+	}
+
+    /**
+     * Deletes all objects in the specified S3 bucket and then deletes the bucket.
+     *
+     * @param s3     The S3Client instance to use for the S3 operations.
+     * @param bucket The name of the S3 bucket to delete.
+     * @throws S3Exception if any error occurs during the S3 operations.
+     */
+	public static boolean deleteBucket( final S3Client s3, final String bucket ) throws S3Exception {
+
+		// To delete a bucket, all the objects in the bucket must be deleted first.
+		ListObjectsV2Request listObjectsV2Request = ListObjectsV2Request.builder().bucket(bucket).build();
+		ListObjectsV2Response listObjectsV2Response;
+
+		do {
+			listObjectsV2Response = s3.listObjectsV2(listObjectsV2Request);
+			for (S3Object s3Object : listObjectsV2Response.contents()) {
+				DeleteObjectRequest request = DeleteObjectRequest.builder().bucket(bucket).key(s3Object.key()).build();
+				s3.deleteObject(request);
+			}
+		} while (listObjectsV2Response.isTruncated());
+		final DeleteBucketRequest deleteBucketRequest = DeleteBucketRequest.builder().bucket(bucket).build();
+		s3.deleteBucket(deleteBucketRequest);
+
+		return true;
+	}
+
+	public static boolean bucketExists(final S3Client s3, final String bucketName) {
+
+		// see
+		// https://github.com/awsdocs/aws-doc-sdk-examples/blob/main/javav2/example_code/s3/src/main/java/com/example/s3/DoesBucketExist.java
+		try {
+			Validate.notEmpty(bucketName, "The bucket name must not be null or an empty string.", "");
+			s3.getBucketAcl(r -> r.bucket(bucketName));
+			return true;
+        } catch (AwsServiceException ase) {
+            // A redirect error or an AccessDenied exception means the bucket exists but it's not in this region
+            // or we don't have permissions to it.
+            if ((ase.statusCode() == HttpStatusCode.MOVED_PERMANENTLY) || "AccessDenied".equals(ase.awsErrorDetails().errorCode())) {
+                return true;
+            }
+            if (ase.statusCode() == HttpStatusCode.NOT_FOUND) {
+                return false;
+            }
+            throw ase;
+        }
 	}
 
 	public static String getS3Bucket(final String uri) {
@@ -46,7 +104,9 @@ public class AmazonS3Utils {
 	public static String getS3Bucket(final URI uri) {
 
 		try {
-			return new AmazonS3URI(uri).getBucket();
+			final Optional<String> bucketOpt = UTIL.parseUri(uri).bucket();
+			if (bucketOpt.isPresent())
+				return bucketOpt.get();
 		} catch (final IllegalArgumentException e) {
 		}
 		// parse bucket manually when AmazonS3URI can't
@@ -67,8 +127,9 @@ public class AmazonS3Utils {
 
 		try {
 			// if key is null, return the empty string
-			final String key = new AmazonS3URI(uri).getKey();
-			return key == null ? "" : key;
+			final Optional<String> keyOpt = UTIL.parseUri(uri).key();
+			if( keyOpt.isPresent())
+				return keyOpt.get() == null ? "" : keyOpt.get();
 		} catch (final IllegalArgumentException e) {
 		}
 		// parse key manually when AmazonS3URI can't
@@ -82,219 +143,167 @@ public class AmazonS3Utils {
 		return keyBuilder.toString();
 	}
 
-	public static boolean areAnonymous(final AWSCredentialsProvider credsProvider) {
+	public static boolean areAnonymous(final AwsCredentialsProvider credsProvider) {
 
-		final AWSCredentials creds = credsProvider.getCredentials();
-		// AnonymousAWSCredentials do not have an equals method
-		if (creds instanceof AnonymousAWSCredentials)
+		if (credsProvider instanceof AnonymousCredentialsProvider)
 			return true;
 
-		return creds.getAWSAccessKeyId() == null && creds.getAWSSecretKey() == null;
+		final AwsCredentials creds = credsProvider.resolveCredentials();
+		if (CredentialUtils.isAnonymous(creds))
+			return true;
+		else
+			return false;
 	}
 
-	public static Regions getS3Region(final AmazonS3URI uri, @Nullable final String region) {
+	public static Region getS3Region(final S3Uri uri, final String region) {
 
-		final Regions regionFromUri = parseRegion(uri.getRegion());
-		return regionFromUri != null ? regionFromUri : parseRegion(region);
+		return getS3Region(uri, Region.of(region));
 	}
 
-	private static Regions parseRegion(String stringRegionFromUri) {
+	public static Region getS3Region(final S3Uri uri, final Region region) {
 
-		return stringRegionFromUri != null ? Regions.fromName(stringRegionFromUri) : null;
+		final Region regionFromUri = uri.region().orElse(null);
+		return regionFromUri != null ? regionFromUri : region;
 	}
 
-	public static AWSCredentialsProvider getS3Credentials(final AWSCredentials s3Credentials, final boolean s3Anonymous) {
-
-		/*
-		 *  TODO necessary until we update to AWS SDK (2.x)
-		 *  see https://github.com/saalfeldlab/n5-aws-s3/issues/28
-		 */
-		final String initialDisableWarningPropertyValue = System.getProperty(DISABLE_WARNING_KEY);
-		if( initialDisableWarningPropertyValue == null)
-			System.setProperty(DISABLE_WARNING_KEY, "true");
+	public static AwsCredentialsProvider getS3Credentials(final AwsCredentials s3Credentials, final boolean s3Anonymous) {
 
 		if (s3Credentials != null) {
-			final AWSStaticCredentialsProvider provider = new AWSStaticCredentialsProvider(s3Credentials);
-			resetDisableWarningValue(initialDisableWarningPropertyValue);
+			final StaticCredentialsProvider provider = StaticCredentialsProvider.create(s3Credentials);
 			return provider;
 		} else {
 			// if not anonymous, try finding credentials
 			if (!s3Anonymous) {
-				final DefaultAWSCredentialsProviderChain provider = new DefaultAWSCredentialsProviderChain();
-				resetDisableWarningValue(initialDisableWarningPropertyValue);
+				final DefaultCredentialsProvider provider = DefaultCredentialsProvider.create();
 				return provider;
 			}
-			else
-			{
-				resetDisableWarningValue(initialDisableWarningPropertyValue);
+			else {
 				return null;
 			}
 		}
 	}
 
-	public static AmazonS3 createS3(final String uri) {
+	public static S3Client createS3(final String uri) {
 
 		return createS3(uri, (String)null, null, null);
 	}
 
-	public static AmazonS3 createS3(final String uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials,
+	public static S3Client createS3(final String uri, @Nullable final String s3Endpoint, @Nullable final AwsCredentialsProvider s3Credentials,
 			@Nullable String region) {
 
 		return createS3(uri, s3Endpoint, s3Credentials, null, region);
 	}
 
-	public static AmazonS3 createS3(final String uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials,
-			@Nullable ClientConfiguration clientConfiguration, @Nullable String region) {
+	public static S3Client createS3(final String uri, @Nullable final String s3Endpoint, @Nullable final AwsCredentialsProvider s3Credentials,
+			@Nullable final SdkHttpClient.Builder<?> clientBuilder, @Nullable String region) {
 
 		try {
-			final AmazonS3URI s3Uri = new AmazonS3URI(uri);
+			final S3Uri s3Uri = AmazonS3Utils.UTIL.parseUri(new URI(uri));
 			return createS3(s3Uri, s3Endpoint, s3Credentials, region);
-		} catch (final IllegalArgumentException e) {
+		} catch (final IllegalArgumentException | URISyntaxException  e) {
 			// if AmazonS3URI does not like the form of the uri
 			try {
 				final URI asURI = new URI(uri);
 				final URI endpointUri = new URI(asURI.getScheme(), asURI.getAuthority(), null, null, null);
-				return createS3(AmazonS3Utils.getS3Bucket(uri), s3Credentials, new AwsClientBuilder.EndpointConfiguration(endpointUri.toString(), null), null);
+				final Endpoint endpoint = Endpoint.builder().url(endpointUri).build();
+				return createS3(AmazonS3Utils.getS3Bucket(uri), s3Credentials, endpoint, null);
 			} catch (final URISyntaxException e1) {
 				throw new N5Exception("Could not create s3 client from uri: " + uri, e1);
 			}
 		}
 	}
 
-	public static AmazonS3 createS3(final AmazonS3URI s3Uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials,
+	public static S3Client createS3(final S3Uri s3Uri, @Nullable final String s3Endpoint, @Nullable final AwsCredentialsProvider s3Credentials,
 			@Nullable final String region) {
 
 		return createS3(s3Uri, s3Endpoint, s3Credentials, null, region);
 	}
 
-	public static AmazonS3 createS3(final AmazonS3URI s3Uri, @Nullable final String s3Endpoint, @Nullable final AWSCredentialsProvider s3Credentials,
-			@Nullable ClientConfiguration clientConfiguration, @Nullable final String region) {
+	public static S3Client createS3(final S3Uri s3Uri, @Nullable final String s3Endpoint, @Nullable final AwsCredentialsProvider s3Credentials,
+			@Nullable final SdkHttpClient.Builder<?> clientBuilder, @Nullable final String region) {
 
-		AwsClientBuilder.EndpointConfiguration endpointConfiguration = null;
-		if (!S3_SCHEME.matcher(s3Uri.getURI().getScheme()).matches()) {
-			endpointConfiguration = createEndpointConfiguration(s3Uri, s3Endpoint);
-		}
-		return createS3(s3Uri.getBucket(), s3Credentials, endpointConfiguration, clientConfiguration, getS3Region(s3Uri, region));
+		// TODO: this changed a lot - validate me
+		final Region defaultRegion = region == null ? Region.US_EAST_1 : Region.of(region);
+		final Endpoint endpoint = Endpoint.builder().url(s3Uri.uri()).build();
+		final Optional<String> bucketOpt = s3Uri.bucket();
+		if (bucketOpt.isPresent())
+			return createS3(bucketOpt.get(), s3Credentials, endpoint, clientBuilder, getS3Region(s3Uri, defaultRegion));
+		else
+			throw new N5Exception("Could not infer bucket name from uri: " + s3Uri);
 	}
 
-	public static AwsClientBuilder.EndpointConfiguration createEndpointConfiguration(final AmazonS3URI s3Uri, @Nullable final String s3Endpoint) {
-
-		AwsClientBuilder.EndpointConfiguration endpointConfiguration;
-		if (s3Endpoint != null)
-			endpointConfiguration = new AwsClientBuilder.EndpointConfiguration(s3Endpoint, null);
-		else {
-			final Matcher matcher = AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(s3Uri.getURI().getHost());
-			if (matcher.find())
-				endpointConfiguration = new AwsClientBuilder.EndpointConfiguration(matcher.group(2), s3Uri.getRegion());
-			else
-				endpointConfiguration = new AwsClientBuilder.EndpointConfiguration(s3Uri.getURI().getHost(), s3Uri.getRegion());
-		}
-		return endpointConfiguration;
-	}
-
-	public static AmazonS3 createS3(
+	public static S3Client createS3(
 			final String bucketName,
-			@Nullable final AWSCredentialsProvider credentialsProvider,
-			@Nullable final AwsClientBuilder.EndpointConfiguration endpointConfiguration,
-			@Nullable final Regions region) {
+			@Nullable final AwsCredentialsProvider credentialsProvider,
+			@Nullable final Endpoint endpoint,
+			@Nullable final Region region) {
 
-		return createS3(bucketName, credentialsProvider, endpointConfiguration, null, region);
+		return createS3(bucketName, credentialsProvider, endpoint, null, region);
 	}
 
-	public static AmazonS3 createS3(
+	public static S3Client createS3(
 			final String bucketName,
-			@Nullable final AWSCredentialsProvider credentialsProvider,
-			@Nullable final AwsClientBuilder.EndpointConfiguration endpointConfiguration,
-			@Nullable final ClientConfiguration clientConfiguration,
-			@Nullable final Regions region) {
+			@Nullable final AwsCredentialsProvider credentialsProvider,
+			@Nullable final Endpoint endpoint,
+			@Nullable final SdkHttpClient.Builder<?> clientBuilder,
+			@Nullable final Region region) {
 
-		final boolean isAmazon = endpointConfiguration == null || AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(endpointConfiguration.getServiceEndpoint()).find();
+		// TODO figure this out 
+		final boolean isAmazon = endpoint == null || AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(endpoint.url().toString()).find();
 
-		/*
-		 *  TODO necessary until we update to AWS SDK (2.x)
-		 *  see https://github.com/saalfeldlab/n5-aws-s3/issues/28
-		 */
-		final String initialDisableWarningPropertyValue = System.getProperty(DISABLE_WARNING_KEY);
-		if( initialDisableWarningPropertyValue == null)
-			System.setProperty(DISABLE_WARNING_KEY, "true");
+		final S3ClientBuilder builder = S3Client.builder();
 
-		final AmazonS3ClientBuilder builder = AmazonS3ClientBuilder.standard();
-
+		// Forcing path style is necessary for at least some non-amazon services
+		// (e.g. IDR), as of May 2025
 		if (!isAmazon)
-			builder.withPathStyleAccessEnabled(true);
+			builder.forcePathStyle(true);
 
 		if (credentialsProvider == null)
-			builder.withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()));
+			builder.credentialsProvider(AnonymousCredentialsProvider.create());
 		else
-			builder.withCredentials(credentialsProvider);
+			builder.credentialsProvider(credentialsProvider);
 
-		if (clientConfiguration != null)
-			builder.withClientConfiguration(clientConfiguration);
+		if( clientBuilder != null )
+			builder.httpClientBuilder(clientBuilder);
 
-		if (endpointConfiguration != null)
-			builder.withEndpointConfiguration(endpointConfiguration);
+		// TODO figure out endpoint
+		if (endpoint != null)
+			builder.endpointOverride(endpoint.url());
 		else if (region != null)
-			builder.withRegion(region);
+			builder.region(region);
 		else
-			builder.withRegion("us-east-1");
+			builder.region(Region.US_EAST_1);
 
-		final AmazonS3 s3 = builder.build();
+		final S3Client s3 = builder.build();
 		// try to listBucket if we are anonymous, if we cannot, don't use anonymous.
 		if (credentialsProvider == null) {
 
 			// I initially tried checking whether the bucket exists, but
 			// that, apparently, returns even when the client does not have access
-			if (!s3.doesBucketExistV2(bucketName) || !canListBucket(s3, bucketName)) {
+			if (!AmazonS3Utils.bucketExists(s3, bucketName) || !canListBucket(s3, bucketName)) {
 				// bucket not detected with anonymous credentials, try detecting credentials
 				// and return it even if it can't detect the bucket, since there's nothing else to do
-				builder.withCredentials(new DefaultAWSCredentialsProviderChain());
-				resetDisableWarningValue(initialDisableWarningPropertyValue);
+				builder.credentialsProvider(DefaultCredentialsProvider.create());
 				return builder.build();
 			}
 		}
 
-		resetDisableWarningValue(initialDisableWarningPropertyValue);
 		return s3;
 	}
 
-	private static String AMZ_REQUEST_HEADER="x-amz-request-id";
+	private static boolean canListBucket(final S3Client s3, final String bucket) {
 
-	/**
-	 * Sends a `getObject` request with the `AmazonS3`. Regardless of the response, if it is a valid
-	 * AWS S3 server, we expect there to be a header with
-	 *
-	 * @param s3 to validate the server response with
-	 */
-	public static void requireValidS3ServerResponse(final AmazonS3 s3) {
-		/* Check if we get an expected error response, which we should as long as the server is responding
-		 * 	with a valid S3 response. If it's an HTTP server, we should get a nonsense response.
-		 */
-		try {
-			s3.getObject(UUID.randomUUID().toString(), UUID.randomUUID().toString());
-		} catch (AmazonS3Exception e) {
-			if (e.getHttpHeaders().containsKey(AMZ_REQUEST_HEADER) || e.getErrorCode().equals("NoSuchBucket"))
-				return;
-			throw e;
-		}
-	}
-
-	private static void resetDisableWarningValue(final String initialDisableWarningPropertyValue) {
-
-		if (initialDisableWarningPropertyValue == null)
-			System.clearProperty(DISABLE_WARNING_KEY);
-	}
-
-	private static boolean canListBucket(final AmazonS3 s3, final String bucket) {
-
-		final ListObjectsV2Request request = new ListObjectsV2Request();
-		request.setBucketName(bucket);
-		request.setMaxKeys(1);
+		ListObjectsV2Request request = ListObjectsV2Request.builder()
+				.bucket(bucket)
+				.maxKeys(1)
+				.build();
 
 		try {
+			// TODO validate this
 			// list objects will throw an AmazonS3Exception (Access Denied) if this client does not have access
 			s3.listObjectsV2(request);
 			return true;
-		} catch (final AmazonS3Exception e) {
+		} catch (final S3Exception e) {
 			return false;
 		}
 	}

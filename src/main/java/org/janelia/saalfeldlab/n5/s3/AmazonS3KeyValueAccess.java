@@ -504,15 +504,16 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			final String composed = addTrailingSlash(compose(path, component));
 			if (composed.equals("/"))
 				continue;
+
+			path = composed;
+			final PutObjectRequest putOb = PutObjectRequest.builder()
+					.bucket(bucketName)
+					.key(path)
+					.contentLength((long)0)
+					.build();
+
+			s3.putObject(putOb, RequestBody.fromBytes(new byte[0]));
 		}
-
-		final PutObjectRequest putOb = PutObjectRequest.builder()
-				.bucket(bucketName)
-				.key(path)
-				.contentLength((long)0)
-				.build();
-
-		s3.putObject(putOb, RequestBody.fromBytes(new byte[0]));
 	}
 
 	@Override

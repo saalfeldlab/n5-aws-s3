@@ -288,14 +288,14 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override public long size(String normalPath) throws N5Exception.N5NoSuchKeyException {
 
 
-		final String key = removeLeadingSlash(AmazonS3Utils.getS3Key(normalPath));
+		final String key = AmazonS3Utils.getS3Key(normalPath);
 
 		ObjectMetadata metadata = rethrowS3Exceptions(() -> s3.getObjectMetadata(bucketName, key));
 		//TODO Caleb: `getContentLength()` doc indicated it's a required field. For reading, that means this should always be a valid
 		//	value, but importantly, for writing, it means we should set the value when writing. The S3 API is smart enough to handle
 		//	getting the size automatically if we are writing from a file, but when writing from a stream, if we don't provide the size ahead of
 		//	time, it will buffer the content before sending it to S3 to get the size. That's convenient, but for performance reasons,
-		//	we should alwways set the size before writing (when it's known)
+		//	we should always set the size before writing (when it's known) (Read the ObjectMetadata#getContentLength() javadoc for more info).
 		return metadata.getContentLength();
 	}
 

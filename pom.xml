@@ -118,7 +118,7 @@
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
-		<n5.version>4.0.0-alpha-4-SNAPSHOT</n5.version>
+		<n5.version>4.0.0-alpha-4</n5.version>
 
 		<s3mock_2.12.version>0.2.5</s3mock_2.12.version>
 		<jaxb-api.version>2.2.2</jaxb-api.version>

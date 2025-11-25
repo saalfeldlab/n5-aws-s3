@@ -121,6 +121,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		this.bucketName = AmazonS3Utils.getS3Bucket(containerURI);
 		this.createBucket = createBucket;
 
+		ensureS3EndpointIsReachable();
+
 		if (!bucketExists()) {
 			if (createBucket) {
 				s3.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
@@ -129,6 +131,14 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 				throw new N5Exception.N5IOException(
 						"Bucket " + bucketName + " does not exist, and you told me not to create one.");
 			}
+		}
+	}
+
+	private void ensureS3EndpointIsReachable() throws N5Exception.N5IOException {
+		try {
+			s3.listBuckets();
+		} catch (Exception e) {
+			throw new N5Exception.N5IOException("Could not reach S3 endpoint", e);
 		}
 	}
 

@@ -27,7 +27,7 @@ public class N5AmazonS3MockTests extends N5AmazonS3Tests {
 		skipErroneousBackendFailures = false;
 	}
 
-	@Before
+//	@Before
 	public void startServer() throws Exception {
 
 		if (runner == null) {
@@ -37,7 +37,7 @@ public class N5AmazonS3MockTests extends N5AmazonS3Tests {
 
 	}
 
-	@AfterClass
+//	@AfterClass
 	public static void stopServer() {
 
 		runner.stopMinioServer();

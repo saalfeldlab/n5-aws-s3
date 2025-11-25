@@ -33,3 +33,5 @@ jobs:
           cache: 'maven'
       - name: Maven Test
         run: mvn -B clean test --file pom.xml
+        env:
+          AWS_REGION: us-east-1

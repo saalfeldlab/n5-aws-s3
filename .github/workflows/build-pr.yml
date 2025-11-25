@@ -11,6 +11,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Start MinIO Server
+        uses: comfuture/minio-action@v1
+        with:
+          access_key: minioadmin
+          secret_key: minioadmin
       - name: Set up Java
         uses: actions/setup-java@v5
         with:

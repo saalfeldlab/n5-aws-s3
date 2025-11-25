@@ -28,35 +28,43 @@
  */
 package org.janelia.saalfeldlab.n5.s3.mock;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.AnonymousAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import java.net.URI;
+import java.net.URISyntaxException;
 
-import io.findify.s3mock.S3Mock;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
 
 public class MockS3Factory {
 
-    private static AmazonS3 s3;
+    private static S3Client s3;
 
-    public static AmazonS3 getOrCreateS3() {
+    public static S3Client getOrCreateS3() {
 
         if (s3 == null) {
 
-            final S3Mock api = new S3Mock.Builder().withPort(8001).withInMemoryBackend().build();
-            api.start();
+			final String user = "minioadmin";
+			final String pw = "minioadmin";
+			final AwsCredentialsProvider creds = new AwsCredentialsProvider() {
 
-            final AwsClientBuilder.EndpointConfiguration endpoint = new AwsClientBuilder.EndpointConfiguration(
-                    "http://localhost:8001",
-                    "us-west-2");
+				@Override
+				public AwsCredentials resolveCredentials() {
+					return AwsBasicCredentials.create(user, pw);
+				}
+			};
 
-            s3 = AmazonS3ClientBuilder
-                    .standard()
-                    .withPathStyleAccessEnabled(true)
-                    .withEndpointConfiguration(endpoint)
-                    .withCredentials(new AWSStaticCredentialsProvider(new AnonymousAWSCredentials()))
-                    .build();
+            try {
+				s3 = S3Client.builder()
+						.forcePathStyle(true)
+						.region(Region.US_WEST_2)
+						.endpointOverride(new URI("http://localhost:9000"))
+						.credentialsProvider(creds)
+						.build();
+			} catch (URISyntaxException e) {
+				e.printStackTrace();
+			}
         }
 
         return s3;

@@ -28,17 +28,16 @@
  */
 package org.janelia.saalfeldlab.n5.s3.backend;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import software.amazon.awssdk.services.s3.S3Client;
 
 public class BackendS3Factory {
 
-    private static AmazonS3 s3;
+    private static S3Client s3;
 
-    public static AmazonS3 getOrCreateS3() {
+    public static S3Client getOrCreateS3() {
 
         if (s3 == null)
-            s3 = AmazonS3ClientBuilder.standard().build();
+            s3 = S3Client.builder().build();
         return s3;
     }
 }

@@ -32,8 +32,9 @@ import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
 
-import com.amazonaws.services.s3.AmazonS3;
 import com.google.gson.GsonBuilder;
+
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * This class is used to create an N5Writer with an Amazon S3 storage backend.
@@ -46,7 +47,7 @@ import com.google.gson.GsonBuilder;
 public class N5AmazonS3Writer extends N5KeyValueWriter {
 
 	/**
-	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * Opens an {@link N5Writer} with an {@link S3Client} storage backend.
      *
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
@@ -61,7 +62,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
+	public N5AmazonS3Writer(final S3Client s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
 
 		super(
 				new AmazonS3KeyValueAccess(s3, "s3://" + bucketName + "/" + basePath, true),
@@ -71,7 +72,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	}
 
 	/**
-	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * Opens an {@link N5Writer} with an {@link S3Client} storage backend.
      *
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
@@ -85,13 +86,13 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath, final boolean cacheAttributes) throws N5Exception {
+	public N5AmazonS3Writer(final S3Client s3, final String bucketName, final String basePath, final boolean cacheAttributes) throws N5Exception {
 
 		this(s3, bucketName, basePath, new GsonBuilder(), cacheAttributes);
 	}
 
 	/**
-	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * Opens an {@link N5Writer} with an {@link S3Client} storage backend.
 	 * <p>
 	 * Metadata are not cached.
      *
@@ -101,13 +102,13 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param gsonBuilder a GsonBuilder with custom configuration.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder) throws N5Exception {
+	public N5AmazonS3Writer(final S3Client s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder) throws N5Exception {
 
 		this(s3, bucketName, basePath, gsonBuilder, false);
 	}
 
 	/**
-	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * Opens an {@link N5Writer} with an {@link S3Client} storage backend.
 	 * <p>
 	 * Metadata are not cached.
      *
@@ -116,13 +117,13 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param basePath the base path relative to the bucket root
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final String basePath) throws N5Exception {
+	public N5AmazonS3Writer(final S3Client s3, final String bucketName, final String basePath) throws N5Exception {
 
 		this(s3, bucketName, basePath, new GsonBuilder());
 	}
 
 	/**
-	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * Opens an {@link N5Writer} with an {@link S3Client} storage backend.
 	 * <p>
 	 * The n5 container root is the bucket's root.
      *
@@ -138,13 +139,13 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
+	public N5AmazonS3Writer(final S3Client s3, final String bucketName, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
 
 		this(s3, bucketName, "/", gsonBuilder, cacheAttributes);
 	}
 
 	/**
-	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * Opens an {@link N5Writer} with an {@link S3Client} storage backend.
 	 * <p>
 	 * The n5 container root is the bucket's root.
      *
@@ -159,13 +160,13 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final boolean cacheAttributes) throws N5Exception {
+	public N5AmazonS3Writer(final S3Client s3, final String bucketName, final boolean cacheAttributes) throws N5Exception {
 
 		this(s3, bucketName, "/", new GsonBuilder(), cacheAttributes);
 	}
 
 	/**
-	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * Opens an {@link N5Writer} with an {@link S3Client} storage backend.
 	 * <p>
 	 * The n5 container root is the bucket's root. Metadata are not cached.
      *
@@ -174,13 +175,13 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param gsonBuilder a GsonBuilder with custom configuration.
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName, final GsonBuilder gsonBuilder) throws N5Exception {
+	public N5AmazonS3Writer(final S3Client s3, final String bucketName, final GsonBuilder gsonBuilder) throws N5Exception {
 
 		this(s3, bucketName, "/", gsonBuilder, false);
 	}
 
 	/**
-	 * Opens an {@link N5Writer} with an {@link AmazonS3} storage backend.
+	 * Opens an {@link N5Writer} with an {@link S3Client} storage backend.
 	 * <p>
 	 * The n5 container root is the bucket's root. Metadata are not cached.
      *
@@ -188,7 +189,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param bucketName the bucket name
 	 * @throws N5Exception if the writer could not be created
 	 */
-	public N5AmazonS3Writer(final AmazonS3 s3, final String bucketName) throws N5Exception {
+	public N5AmazonS3Writer(final S3Client s3, final String bucketName) throws N5Exception {
 
 		this(s3, bucketName, "/", new GsonBuilder());
 	}

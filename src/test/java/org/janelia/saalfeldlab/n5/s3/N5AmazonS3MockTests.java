@@ -5,10 +5,9 @@ import java.nio.file.Path;
 
 import org.janelia.saalfeldlab.n5.s3.mock.MockS3Factory;
 import org.janelia.saalfeldlab.n5.s3.mock.RunnerWithMinioServer;
-import org.junit.After;
 import org.junit.AfterClass;
-import org.junit.Before;
 import org.junit.BeforeClass;
+
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -16,9 +15,9 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 public class N5AmazonS3MockTests extends N5AmazonS3Tests {
 
-	public Path minioServerDirectory;
+	public static Path minioServerDirectory;
 
-	public URI minioUri;
+	public static URI minioUri;
 
 	public static RunnerWithMinioServer runner;
 
@@ -27,17 +26,17 @@ public class N5AmazonS3MockTests extends N5AmazonS3Tests {
 		skipErroneousBackendFailures = false;
 	}
 
-//	@Before
-	public void startServer() throws Exception {
+	@BeforeClass
+	public static void startServer() throws Exception {
 
-		if (runner == null) {
-			runner = new RunnerWithMinioServer(getClass());
-			runner.startMinioServer();
-		}
+		runner = new RunnerWithMinioServer(N5AmazonS3MockTests.class);
+		runner.startMinioServer();
 
+		minioServerDirectory = runner.minioServerDirectory;
+		minioUri = runner.minioUri;
 	}
 
-//	@AfterClass
+	@AfterClass
 	public static void stopServer() {
 
 		runner.stopMinioServer();
@@ -52,6 +51,5 @@ public class N5AmazonS3MockTests extends N5AmazonS3Tests {
 	@Test
 	@Ignore("Erroneous NoSuchBucket Skipped for Mock Tests")
 	@Override
-	public void testErroneousNoSuchBucketFailure() {
-	}
+	public void testErroneousNoSuchBucketFailure() {}
 }

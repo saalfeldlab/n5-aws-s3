@@ -103,6 +103,10 @@ public class RunnerWithMinioServer extends BlockJUnit4ClassRunner {
 	@Before
 	public void startMinioServer() throws Exception {
 		
+		if( isMinioServerRunning() ) {
+			return;
+		}
+
 		// TODO if the server fails to start for some reason
 		// e.g. minio server not installed
 		// probably should not fail, but report "mock test skipped" or something
@@ -120,11 +124,20 @@ public class RunnerWithMinioServer extends BlockJUnit4ClassRunner {
 					perTestHttpOut.append(line).append("\n");
 				}
 			} catch (IOException e) {
-				throw new RuntimeException(e);
 			}
 		});
 		clearStdout.setDaemon(true);
 		clearStdout.start();
+	}
+
+	private boolean isMinioServerRunning() {
+
+		try {
+			minioUri.toURL().openConnection().connect();
+			return true;
+		} catch (IOException e) {
+		}
+		return false;
 	}
 
 	private void waitForReady() throws IOException, InterruptedException {
@@ -135,17 +148,23 @@ public class RunnerWithMinioServer extends BlockJUnit4ClassRunner {
 					minioUri.toURL().openConnection().connect();
 					return;
 				} catch (Exception e) {
-					//ignore
+					 try {
+						Thread.sleep(100);
+					} catch (InterruptedException e1) {
+					}
 				}
 			}
 		});
 		waitForConnect.start();
 		waitForConnect.join(10_000);
-		minioUri.toURL().openConnection().connect();
 	}
 
 	@After
 	public void stopMinioServer() {
+
+		// we didn't start the server ourselves
+		if (process == null)
+			return;
 
 		process.destroy();
 		try {

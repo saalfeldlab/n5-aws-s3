@@ -173,7 +173,7 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 		for (LocationInBucket location : LocationInBucket.values()) {
 			final String bucketName = location.getBucketName();
 			try {
-				final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(lateinitS3, N5URI.encodeAsUri("s3://" + bucketName), false);
+				final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(lateinitS3, N5URI.encodeAsUri("s3://" + bucketName), true);
 				kva.delete(kva.normalize("/"));
 			} catch (Exception e) {
 

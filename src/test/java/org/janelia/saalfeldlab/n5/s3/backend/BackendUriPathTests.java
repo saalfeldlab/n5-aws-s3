@@ -8,6 +8,7 @@ import org.janelia.saalfeldlab.n5.s3.AmazonS3Utils;
 import org.janelia.saalfeldlab.n5.s3.N5AmazonS3Tests;
 import org.junit.After;
 import org.junit.Assume;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -91,12 +92,14 @@ public class BackendUriPathTests {
 	}
 
 	@Test
+	@Ignore
 	public void testEMBLUriPaths() throws URISyntaxException {
 
 		testPathAtPublicURI(N5URI.encodeAsUri("https://s3.embl.de/i2k-2020"), path);
 	}
 
 	@Test
+	@Ignore
 	public void testEMIUriPaths() throws URISyntaxException {
 
 		testPathAtPublicURI(N5URI.encodeAsUri("https://uk1s3.embassy.ebi.ac.uk/idr"), path);

@@ -224,7 +224,7 @@ public class AmazonS3Utils {
 
 		// TODO: this changed a lot - validate me
 		final Region defaultRegion = region == null ? Region.US_EAST_1 : Region.of(region);
-		final Endpoint endpoint = Endpoint.builder().url(s3Uri.uri()).build();
+		final Endpoint endpoint = s3Endpoint != null ? Endpoint.builder().url(URI.create(s3Endpoint)).build() : null;
 		final Optional<String> bucketOpt = s3Uri.bucket();
 		if (bucketOpt.isPresent())
 			return createS3(bucketOpt.get(), s3Credentials, endpoint, clientBuilder, getS3Region(s3Uri, defaultRegion));

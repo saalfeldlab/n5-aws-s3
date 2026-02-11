@@ -13,7 +13,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
 
@@ -105,15 +104,29 @@ public class BackendUriPathTests {
 		testPathAtPublicURI(N5URI.encodeAsUri("https://uk1s3.embassy.ebi.ac.uk/idr"), path);
 	}
 
+
+	@Test
+	public void testJaneliaCosemUriPaths() throws URISyntaxException {
+
+
+		final S3Client s3;
+        try {
+	        s3 = AmazonS3Utils.createS3("s3://janelia-cosem-datasets/jrc_hela-3/jrc_hela-3.n5");
+		} catch (Exception e) {
+			Assume.assumeNoException(e);
+			throw e;
+		}
+
+		URI uri = N5URI.encodeAsUri("s3://janelia-cosem-datasets/jrc_hela-3/jrc_hela-3.n5");
+		final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(s3, uri, false);
+		check(kva, uri, path);
+	}
+
 	private static void testPathAtPublicURI(URI uri, String path) throws URISyntaxException {
 
 		final S3Client s3;
 		try {
-			s3 = S3Client.builder()
-					.forcePathStyle(true)
-					.endpointOverride(uri)
-					.credentialsProvider(AnonymousCredentialsProvider.create())
-					.build();
+			s3 = AmazonS3Utils.createS3(uri.toString());
 		} catch (Exception e) {
 			Assume.assumeNoException(e);
 			throw e;

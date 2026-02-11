@@ -40,10 +40,9 @@ public class AmazonS3UtilsTest {
 					final URI uri = new URI(uriString);
 					assertEquals("bucket from uri", bucket, AmazonS3Utils.getS3Bucket(uri));
 					assertEquals("key from uri", path, AmazonS3Utils.getS3Key(uri));
-					AmazonS3Utils.createS3(uriString,
-							null,
-							AnonymousCredentialsProvider.create(),
-							null);
+					AmazonS3Utils.createS3(uriString, builder -> {
+						builder.credentialsProvider(AnonymousCredentialsProvider.create());
+					}).close();
 				}
 
 	}

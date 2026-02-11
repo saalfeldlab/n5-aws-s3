@@ -45,12 +45,14 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
-import org.janelia.saalfeldlab.n5.KeyValueAccessReadData;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
 import org.janelia.saalfeldlab.n5.N5URI;
+import org.janelia.saalfeldlab.n5.readdata.LazyRead;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
+import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
 
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.ResponseBytes;
@@ -379,9 +381,25 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		return response.contentLength();
 	}
 
-	@Override public ReadData createReadData(String normalPath) throws N5Exception.N5IOException {
+	@Override
+	public VolatileReadData createReadData(String normalPath) throws N5Exception.N5IOException {
 
-		return new KeyValueAccessReadData(new S3LazyRead(normalPath));
+		// TODO locking
+		return VolatileReadData.from(new S3LazyRead(normalPath));
+	}
+
+	@Override
+	public void write(final String normalPath, final ReadData data) throws N5IOException {
+
+		// TODO locking
+		final String key = AmazonS3Utils.getS3Key(normalPath);
+		try (final S3ObjectChannel ch = new S3ObjectChannel(removeLeadingSlash(key), false);
+				final OutputStream os = ch.newOutputStream();) {
+			data.writeTo(os);
+		} catch (IOException e) {
+			throw new N5Exception.N5IOException(e);
+		}
+
 	}
 
 	private <T> T rethrowS3Exceptions(Supplier<T> action) {
@@ -435,6 +453,11 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		@Override public long size() throws N5Exception.N5IOException {
 
 			return AmazonS3KeyValueAccess.this.size(key);
+		}
+
+		@Override
+		public void close() throws IOException {
+			// TODO ioPolicy?
 		}
 	}
 

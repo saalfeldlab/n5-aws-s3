@@ -3,6 +3,7 @@ package org.janelia.saalfeldlab.n5.s3;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
@@ -28,9 +29,7 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.CredentialUtils;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
-import software.amazon.awssdk.endpoints.Endpoint;
 import software.amazon.awssdk.http.HttpStatusCode;
-import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.utils.Validate;
 
 public class AmazonS3Utils {
@@ -82,6 +81,9 @@ public class AmazonS3Utils {
         } catch (AwsServiceException ase) {
             // A redirect error or an AccessDenied exception means the bucket exists but it's not in this region
             // or we don't have permissions to it.
+			if (ase.statusCode() == HttpStatusCode.FORBIDDEN) {
+				return true;
+			}
             if ((ase.statusCode() == HttpStatusCode.MOVED_PERMANENTLY) || "AccessDenied".equals(ase.awsErrorDetails().errorCode())) {
                 return true;
             }
@@ -183,112 +185,73 @@ public class AmazonS3Utils {
 		}
 	}
 
-	public static S3Client createS3(final String uri) {
-
-		return createS3(uri, (String)null, null, null);
-	}
-
-	public static S3Client createS3(final String uri, @Nullable final String s3Endpoint, @Nullable final AwsCredentialsProvider s3Credentials,
-			@Nullable String region) {
-
-		return createS3(uri, s3Endpoint, s3Credentials, null, region);
-	}
-
-	public static S3Client createS3(final String uri, @Nullable final String s3Endpoint, @Nullable final AwsCredentialsProvider s3Credentials,
-			@Nullable final SdkHttpClient.Builder<?> clientBuilder, @Nullable String region) {
-
-		try {
-			final S3Uri s3Uri = AmazonS3Utils.UTIL.parseUri(new URI(uri));
-			return createS3(s3Uri, s3Endpoint, s3Credentials, region);
-		} catch (final IllegalArgumentException | URISyntaxException  e) {
-			// if AmazonS3URI does not like the form of the uri
+	@Nullable
+	private static URI parseEndpointFromURI(String uri) {
+		URI asUri = URI.create(uri);
+		if (!asUri.getScheme().equals("s3")) {
 			try {
-				final URI asURI = new URI(uri);
-				final URI endpointUri = new URI(asURI.getScheme(), asURI.getAuthority(), null, null, null);
-				final Endpoint endpoint = Endpoint.builder().url(endpointUri).build();
-				return createS3(AmazonS3Utils.getS3Bucket(uri), s3Credentials, endpoint, null);
-			} catch (final URISyntaxException e1) {
-				throw new N5Exception("Could not create s3 client from uri: " + uri, e1);
+				return new URI(asUri.getScheme(), asUri.getAuthority(), null, null, null);
+			} catch (URISyntaxException ignored) {
 			}
 		}
+		return null;
 	}
 
-	public static S3Client createS3(final S3Uri s3Uri, @Nullable final String s3Endpoint, @Nullable final AwsCredentialsProvider s3Credentials,
-			@Nullable final String region) {
-
-		return createS3(s3Uri, s3Endpoint, s3Credentials, null, region);
+	public static S3Client createS3(final String uri) {
+		return createS3(uri, null);
 	}
 
-	public static S3Client createS3(final S3Uri s3Uri, @Nullable final String s3Endpoint, @Nullable final AwsCredentialsProvider s3Credentials,
-			@Nullable final SdkHttpClient.Builder<?> clientBuilder, @Nullable final String region) {
+    public static S3Client createS3(final String uri, @Nullable final Consumer<S3ClientBuilder> builderConfig) {
+		S3ClientBuilder builder = S3Client.builder();
 
-		// TODO: this changed a lot - validate me
-		final Region defaultRegion = region == null ? Region.US_EAST_1 : Region.of(region);
-		final Endpoint endpoint = s3Endpoint != null ? Endpoint.builder().url(URI.create(s3Endpoint)).build() : null;
-		final Optional<String> bucketOpt = s3Uri.bucket();
-		if (bucketOpt.isPresent())
-			return createS3(bucketOpt.get(), s3Credentials, endpoint, clientBuilder, getS3Region(s3Uri, defaultRegion));
-		else
-			throw new N5Exception("Could not infer bucket name from uri: " + s3Uri);
-	}
+        URI endpoint = parseEndpointFromURI(uri);
+        if (endpoint != null)
+            builder.endpointOverride(endpoint);
 
-	public static S3Client createS3(
-			final String bucketName,
-			@Nullable final AwsCredentialsProvider credentialsProvider,
-			@Nullable final Endpoint endpoint,
-			@Nullable final Region region) {
+        final boolean isAmazon = endpoint == null || AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(endpoint.toString()).find();
+        // Forcing path style is necessary for at least some non-amazon services
+        // (e.g. IDR), as of May 2025
+        if (!isAmazon)
+            builder.forcePathStyle(true);
 
-		return createS3(bucketName, credentialsProvider, endpoint, null, region);
-	}
+        Region region = null;
+        String bucket;
+        try {
+            final S3Uri s3Uri = AmazonS3Utils.UTIL.parseUri(new URI(uri));
+            bucket = s3Uri.bucket().orElse(null);
+            region = getS3Region(s3Uri, region);
 
-	public static S3Client createS3(
-			final String bucketName,
-			@Nullable final AwsCredentialsProvider credentialsProvider,
-			@Nullable final Endpoint endpoint,
-			@Nullable final SdkHttpClient.Builder<?> clientBuilder,
-			@Nullable final Region region) {
+        } catch (final IllegalArgumentException | URISyntaxException e) {
+            bucket = AmazonS3Utils.getS3Bucket(uri);
+        }
+        if (bucket == null) {
+            throw new N5Exception("Could not infer bucket name from uri: " + uri);
+        }
 
-		// TODO figure this out 
-		final boolean isAmazon = endpoint == null || AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(endpoint.url().toString()).find();
+        AnonymousCredentialsProvider anonymousCredentialsProvider = AnonymousCredentialsProvider.create();
+        builder.credentialsProvider(anonymousCredentialsProvider);
+        builder.region(region);
 
-		final S3ClientBuilder builder = S3Client.builder();
 
-		// Forcing path style is necessary for at least some non-amazon services
-		// (e.g. IDR), as of May 2025
-		if (!isAmazon)
-			builder.forcePathStyle(true);
+        if (builderConfig != null)
+            builderConfig.accept(builder);
 
-		if (credentialsProvider == null)
-			builder.credentialsProvider(AnonymousCredentialsProvider.create());
-		else
-			builder.credentialsProvider(credentialsProvider);
+        S3Client client = builder.build();
+        /* if we are still using the default anonymous, verify we can access the bucket;
+         * If not, use the default Credentials Provider. If the credentials provider was
+         * configured in the consumer, don't do anything. */
+        if (client.serviceClientConfiguration().credentialsProvider() == anonymousCredentialsProvider) {
+            if (!AmazonS3Utils.bucketExists(client, bucket) || !canListBucket(client, bucket)) {
+                client.close();
 
-		if( clientBuilder != null )
-			builder.httpClientBuilder(clientBuilder);
+                // bucket wasn't detected with anonymous credentials, try detecting credentials
+                // and return it even if it can't detect the bucket, since there's nothing else to do
+                builder.credentialsProvider(DefaultCredentialsProvider.create());
+				client = builder.build();
+            }
+        }
 
-		// TODO figure out endpoint
-		if (endpoint != null)
-			builder.endpointOverride(endpoint.url());
-		else if (region != null)
-			builder.region(region);
-		else
-			builder.region(Region.US_EAST_1);
-
-		final S3Client s3 = builder.build();
-		// try to listBucket if we are anonymous, if we cannot, don't use anonymous.
-		if (credentialsProvider == null) {
-
-			// I initially tried checking whether the bucket exists, but
-			// that, apparently, returns even when the client does not have access
-			if (!AmazonS3Utils.bucketExists(s3, bucketName) || !canListBucket(s3, bucketName)) {
-				// bucket not detected with anonymous credentials, try detecting credentials
-				// and return it even if it can't detect the bucket, since there's nothing else to do
-				builder.credentialsProvider(DefaultCredentialsProvider.create());
-				return builder.build();
-			}
-		}
-
-		return s3;
+		return client;
 	}
 
 	private static boolean canListBucket(final S3Client s3, final String bucket) {
@@ -300,7 +263,7 @@ public class AmazonS3Utils {
 
 		try {
 			// TODO validate this
-			// list objects will throw an AmazonS3Exception (Access Denied) if this client does not have access
+			// list objects will throw an S3Exception (Access Denied) if this client does not have access
 			s3.listObjectsV2(request);
 			return true;
 		} catch (final S3Exception e) {

@@ -253,6 +253,25 @@ public class AmazonS3Utils {
 
 		return client;
 	}
+  
+    /**
+	 * Throws an exception of the s3 endpoint is not reachable. Useful for
+	 * distinguishing between s3-compatible and http backends.
+	 * <p>
+	 * This implementation calls s3.listBuckets.
+	 * 
+	 * @param s3
+	 *            an S3Client
+	 * @throws N5Exception.N5IOException
+	 *             if the s3 endpoint is not reachable
+	 */
+	public static void ensureS3EndpointIsReachable(final S3Client s3) throws N5Exception.N5IOException {
+		try {
+			s3.listBuckets();
+		} catch (Exception e) {
+			throw new N5Exception.N5IOException("Could not reach S3 endpoint", e);
+		}
+	}
 
 	private static boolean canListBucket(final S3Client s3, final String bucket) {
 

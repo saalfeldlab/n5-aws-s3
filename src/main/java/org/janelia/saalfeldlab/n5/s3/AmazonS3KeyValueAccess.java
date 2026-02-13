@@ -25,24 +25,13 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Reader;
-import java.io.Writer;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.channels.NonReadableChannelException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.LockedChannel;
@@ -60,9 +49,6 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
-import software.amazon.awssdk.services.s3.model.Delete;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
@@ -71,7 +57,6 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -80,6 +65,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	private final S3Client s3;
 	private final URI containerURI;
 	private final String bucketName;
+	private final S3IoPolicy ioPolicy;
 
 	private final boolean createBucket;
 	private Boolean bucketCheckedAndExists = null;
@@ -123,6 +109,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		this.bucketName = AmazonS3Utils.getS3Bucket(containerURI);
 		this.createBucket = createBucket;
 
+		this.ioPolicy = setIoPolicy();
+
 		if (!bucketExists()) {
 			if (createBucket) {
 				s3.createBucket(CreateBucketRequest.builder().bucket(bucketName).build());
@@ -133,6 +121,22 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			}
 		}
 	}
+
+	private S3IoPolicy setIoPolicy() {
+
+		String ioPolicy = System.getProperty("n5.ioPolicy");
+		if (ioPolicy == null)
+			return new S3IoPolicy.EtagMatch(s3, bucketName);
+
+		switch (ioPolicy) {
+			case "unsafe":
+			case "atomicFallbackUnsafe": // For S3, this is equivalent ot just Unsafe
+				return new S3IoPolicy.Unsafe(s3, bucketName);
+			case "atomic":
+			default:
+				return new S3IoPolicy.EtagMatch(s3, bucketName);
+		}
+    }
 
 	private boolean bucketExists() {
 
@@ -277,12 +281,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		try {
 			// TODO needs testing.
 			// the exception thrown may depend on permissions
-			@SuppressWarnings("unused")
-			HeadObjectResponse headObjectResponse = s3.headObject(
-				HeadObjectRequest.builder().key(key).bucket(bucketName).build());
-
+			headObjectRequest(s3, bucketName, key, null);
 			return true;
-		} catch( NoSuchKeyException e ) {
+		} catch( N5NoSuchKeyException | NoSuchKeyException e ) {
 			return false;
 		} catch (Throwable e) {
 			throw new N5Exception(e);
@@ -312,7 +313,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * @param path the path
 	 * @return the path with a trailing slash
 	 */
-	private static String addTrailingSlash(final String path) {
+	static String addTrailingSlash(final String path) {
 
 		return path.endsWith("/") ? path : path + "/";
 	}
@@ -324,7 +325,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	 * @param path the path
 	 * @return the path without the leading slash
 	 */
-	private static String removeLeadingSlash(final String path) {
+	static String removeLeadingSlash(final String path) {
 
 		return path.startsWith("/") ? path.substring(1) : path;
 	}
@@ -371,108 +372,31 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public long size(String normalPath) throws N5NoSuchKeyException {
 
 		final String key = removeLeadingSlash(AmazonS3Utils.getS3Key(normalPath));
-
-		final HeadObjectRequest headObjectRequest = HeadObjectRequest.builder()
-				.bucket(bucketName)
-				.key(key)
-				.build();
-
-		final HeadObjectResponse response = rethrowS3Exceptions(() -> s3.headObject(headObjectRequest));
-		return response.contentLength();
+		return headObjectRequest(s3, bucketName, key, null).contentLength();
 	}
 
 	@Override
 	public VolatileReadData createReadData(String normalPath) throws N5Exception.N5IOException {
 
-		// TODO locking
-		return VolatileReadData.from(new S3LazyRead(normalPath));
+		final String key = AmazonS3Utils.getS3Key(normalPath);
+        try {
+            return ioPolicy.read(key);
+        } catch (IOException e) {
+            throw new N5IOException(e);
+        }
 	}
 
 	@Override
 	public void write(final String normalPath, final ReadData data) throws N5IOException {
 
-		// TODO locking
 		final String key = AmazonS3Utils.getS3Key(normalPath);
-		try (final S3ObjectChannel ch = new S3ObjectChannel(removeLeadingSlash(key), false);
-				final OutputStream os = ch.newOutputStream();) {
-			data.writeTo(os);
-		} catch (IOException e) {
-			throw new N5Exception.N5IOException(e);
-		}
+		final String normalizedKey = removeLeadingSlash(key);
 
-	}
-
-	private <T> T rethrowS3Exceptions(Supplier<T> action) {
-		try {
-			return action.get();
-		} catch (final NoSuchKeyException e) {
-				throw new N5Exception.N5NoSuchKeyException("No such key", e);
-		} catch (final AwsServiceException e) {
-			final int statusCode = e.awsErrorDetails().sdkHttpResponse().statusCode();
-			if (statusCode == 404 || statusCode == 403)
-				throw new N5Exception.N5NoSuchKeyException("No such key", e);
-			throw new N5Exception.N5IOException("S3 Exception", e);
-		}
-	}
-
-	private class S3LazyRead implements LazyRead {
-
-		private final String key;
-
-		S3LazyRead(final String normalizedKey) {
-			this.key = normalizedKey;
-		}
-
-		private GetObjectRequest createObjectRequest(final String s3Key, long offset, long length) {
-
-			final GetObjectRequest.Builder requestBuilder = GetObjectRequest.builder()
-					.key(s3Key)
-					.bucket(bucketName);
-
-			// Only add range header if we're doing a partial read
-			if (offset > 0 || length > 0) {
-				// HTTP Range header format: "bytes=start-end"
-				// If length is 0 or negative, read from offset to end of file
-				final String range = length > 0
-						? String.format("bytes=%d-%d", offset, offset + length - 1)
-						: String.format("bytes=%d-", offset);
-				requestBuilder.range(range);
-			}
-
-			return requestBuilder.build();
-		}
-
-		@Override public ReadData materialize(long offset, long length) throws N5Exception.N5IOException {
-
-			final String s3Key = AmazonS3Utils.getS3Key(key);
-			final GetObjectRequest request = createObjectRequest(s3Key, offset, length);
-			final ResponseBytes<GetObjectResponse> response = rethrowS3Exceptions(() -> s3.getObject(request, ResponseTransformer.toBytes()));
-			return ReadData.from(response.asByteArray());
-		}
-
-		@Override public long size() throws N5Exception.N5IOException {
-
-			return AmazonS3KeyValueAccess.this.size(key);
-		}
-
-		@Override
-		public void close() throws IOException {
-			// TODO ioPolicy?
-		}
-	}
-
-	@Override
-	public LockedChannel lockForReading(final String normalPath) {
-
-		final String key = AmazonS3Utils.getS3Key(normalPath);
-		return new S3ObjectChannel(key, true);
-	}
-
-	@Override
-	public LockedChannel lockForWriting(final String normalPath) {
-
-		final String key = AmazonS3Utils.getS3Key(normalPath);
-		return new S3ObjectChannel(removeLeadingSlash(key), false);
+        try {
+            ioPolicy.write(normalizedKey, data);
+        } catch (IOException e) {
+            throw new N5IOException(e);
+        }
 	}
 
 	@Override
@@ -559,163 +483,177 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 
 		final String key = removeLeadingSlash(AmazonS3Utils.getS3Key(normalPath));
-		if (!key.endsWith("/")) {
+        try {
+            ioPolicy.delete(key);
+        } catch (IOException e) {
+            throw new N5IOException(e);
+        }
+	}
 
-			final DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+	static HeadObjectResponse headObjectRequest(final S3Client s3, final String bucketName, final String key, final String matchEtag) {
+		HeadObjectRequest.Builder requestBuilder = HeadObjectRequest.builder()
 				.bucket(bucketName)
-				.key(key)
-				.build();
+				.key(key);
 
-			try {
-				s3.deleteObject(deleteRequest);
-			} catch (S3Exception e) {
-			}
+		if (matchEtag != null)
+			requestBuilder.ifMatch(matchEtag);
+
+		final HeadObjectRequest request = requestBuilder.build();
+
+		return rethrowS3Exceptions(() -> s3.headObject(request));
+	}
+
+	static <T> T rethrowS3Exceptions(Supplier<T> action) {
+		try {
+			return action.get();
+		} catch (final NoSuchKeyException e) {
+			throw new N5Exception.N5NoSuchKeyException("No such key", e);
+		} catch (final AwsServiceException e) {
+			final int statusCode = e.awsErrorDetails().sdkHttpResponse().statusCode();
+			if (statusCode == 404 || statusCode == 403)
+				throw new N5Exception.N5NoSuchKeyException("No such key", e);
+			if (statusCode == 412)
+				throw new N5ConcurrentModificationException("eTag has changed since initial request", e);
+			throw new N5Exception.N5IOException("S3 Exception", e);
+		}
+	}
+
+	//TODO: Move to N5
+	static class N5ConcurrentModificationException extends N5Exception {
+
+		public N5ConcurrentModificationException(String message) {
+			super(message);
 		}
 
-		final String prefix = addTrailingSlash(key);
+		public N5ConcurrentModificationException(String message, Throwable cause) {
+			super(message, cause);
+		}
 
-		ListObjectsV2Request listObjectsRequest;
-		ListObjectsV2Response objectsListing;
-		listObjectsRequest = ListObjectsV2Request.builder()
-				.bucket(bucketName)
-				.prefix(prefix)
-				.build();
+		public N5ConcurrentModificationException(Throwable cause) {
+			super(cause);
+		}
 
-		do {
-			objectsListing = s3.listObjectsV2(listObjectsRequest);
-			final List<ObjectIdentifier> objectsToDelete = objectsListing.contents().stream().map( x -> {
-				return ObjectIdentifier.builder().key(x.key()).build();
-			}).collect(Collectors.toList());
+	}
 
-			if (!objectsToDelete.isEmpty()) {
-				final DeleteObjectsRequest deleteRequest = DeleteObjectsRequest.builder()
+	@Override
+	@Deprecated
+	public LockedChannel lockForReading(final String normalPath) {
+
+		throw new UnsupportedOperationException("Deprecated; use `createReadData`");
+	}
+
+	@Override
+	@Deprecated
+	public LockedChannel lockForWriting(final String normalPath) {
+
+		return new LockedChannel() {
+
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+			@Override
+			public Reader newReader() throws N5IOException {
+				return null;
+			}
+
+			@Override
+			public InputStream newInputStream() throws N5IOException {
+				return null;
+			}
+
+			@Override
+			public Writer newWriter() throws N5IOException {
+				return new BufferedWriter(new OutputStreamWriter(baos));
+			}
+
+			@Override
+			public OutputStream newOutputStream() throws N5IOException {
+				return baos;
+			}
+
+			@Override
+			public void close() throws IOException {
+				ReadData readData = ReadData.from(baos.toByteArray());
+				write(normalPath, readData);
+			}
+		};
+	}
+
+	static class S3LazyRead implements LazyRead {
+
+		private final String s3Key;
+		private final boolean verifyEtag;
+		private final S3Client s3;
+		private final String bucketName;
+		private String eTag = null;
+
+
+		S3LazyRead(final S3Client s3, final String bucketName, final String s3Key, final boolean verifyEtag) {
+			this.s3 = s3;
+			this.bucketName = bucketName;
+			this.s3Key = s3Key;
+			this.verifyEtag = verifyEtag;
+		}
+
+		private String getEtag(final String s3Key) {
+			HeadObjectRequest headRequest = HeadObjectRequest.builder()
 					.bucket(bucketName)
-					.delete( Delete.builder().objects(objectsToDelete).build())
+					.key(s3Key)
 					.build();
 
-				s3.deleteObjects(deleteRequest);
-			}
-
-			// TODO what about continuation token?
-
-		} while (objectsListing.isTruncated());
-	}
-
-	private class S3ObjectChannel implements LockedChannel {
-
-		protected final String path;
-		final boolean readOnly;
-		private final ArrayList<Closeable> resources = new ArrayList<>();
-
-		protected S3ObjectChannel(final String path, final boolean readOnly) {
-
-			this.path = path;
-			this.readOnly = readOnly;
+			return s3.headObject(headRequest).eTag();
 		}
 
-		private void checkWritable() {
+		private GetObjectRequest createObjectRequest(final String s3Key, long offset, long length) {
 
-			if (readOnly) {
-				throw new NonReadableChannelException();
+
+			final GetObjectRequest.Builder requestBuilder = GetObjectRequest.builder()
+					.key(s3Key)
+					.bucket(bucketName);
+
+			// Only add range header if we're doing a partial read
+			if (offset > 0 || length > 0) {
+				// HTTP Range header format: "bytes=start-end"
+				// If length is 0 or negative, read from offset to end of file
+				final String range = length > 0
+						? String.format("bytes=%d-%d", offset, offset + length - 1)
+						: String.format("bytes=%d-", offset);
+				requestBuilder.range(range);
 			}
+
+			if (verifyEtag) {
+				if (eTag == null)
+					eTag = getEtag(s3Key);
+				requestBuilder.ifMatch(eTag);
+			}
+
+			return requestBuilder.build();
 		}
 
-		@Override
-		public InputStream newInputStream() {
+		@Override public ReadData materialize(long offset, long length) throws N5Exception.N5IOException {
 
-			try {
-				final GetObjectRequest objectRequest = GetObjectRequest.builder().key(path).bucket(bucketName).build();
-				// TODO consider using ResponseTransformer.toBytes
-	            return s3.getObject(objectRequest, ResponseTransformer.toInputStream());
-			} catch (final S3Exception e) {
-				// TODO figure out how to determine if the error is because the key does not exist
-				if (e.statusCode() == 404 || e.statusCode() == 403)
-					throw new N5Exception.N5NoSuchKeyException("No such key", e);
-				else
-					throw new N5Exception.N5IOException(e);
-			}
+			final ResponseBytes<GetObjectResponse> response = rethrowS3Exceptions(() -> {
+				final GetObjectRequest request = createObjectRequest(s3Key, offset, length);
+				return s3.getObject(request, ResponseTransformer.toBytes());
+			});
+			return ReadData.from(response.asByteArray());
 		}
 
-		@Override
-		public Reader newReader() {
+		@Override public long size() throws N5Exception.N5IOException {
 
-			final InputStreamReader reader = new InputStreamReader(newInputStream(), StandardCharsets.UTF_8);
-			synchronized (resources) {
-				resources.add(reader);
-			}
-			return reader;
-		}
+			if (!verifyEtag)
+				eTag = null;
 
-		@Override
-		public OutputStream newOutputStream() {
+			final HeadObjectResponse response = headObjectRequest(s3, bucketName, s3Key, eTag);
 
-			checkWritable();
-			final S3OutputStream s3Out = new S3OutputStream();
-			synchronized (resources) {
-				resources.add(s3Out);
-			}
-			return s3Out;
+			if (eTag == null && verifyEtag)
+				eTag = response.eTag();
+
+			return response.contentLength();
 		}
 
 		@Override
-		public Writer newWriter() {
-
-			checkWritable();
-			final OutputStreamWriter writer = new OutputStreamWriter(newOutputStream(), StandardCharsets.UTF_8);
-			synchronized (resources) {
-				resources.add(writer);
-			}
-			return writer;
-		}
-
-		@Override
-		public void close() throws IOException {
-
-			synchronized (resources) {
-				for (final Closeable resource : resources)
-					resource.close();
-				resources.clear();
-			}
-		}
-
-		final class S3OutputStream extends OutputStream {
-
-			private final ByteArrayOutputStream buf = new ByteArrayOutputStream();
-
-			private boolean closed = false;
-
-			@Override
-			public void write(final byte[] b, final int off, final int len) {
-
-				buf.write(b, off, len);
-			}
-
-			@Override
-			public void write(final int b) {
-
-				buf.write(b);
-			}
-
-			@Override
-			public synchronized void close() throws IOException {
-
-				if (!closed) {
-					closed = true;
-		            PutObjectRequest putOb = PutObjectRequest.builder()
-		                .bucket(bucketName)
-		                .key(path)
-		                .build();
-
-					try {
-						s3.putObject(putOb, RequestBody.fromBytes(buf.toByteArray()));
-					} catch (S3Exception e) {
-						e.printStackTrace();
-					}
-					buf.close();
-				}
-			}
+		public void close() {
+			eTag = null;
 		}
 	}
-
-
 }

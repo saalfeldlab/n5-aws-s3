@@ -16,12 +16,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Uri;
 import software.amazon.awssdk.services.s3.S3Utilities;
-import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
-import software.amazon.awssdk.services.s3.model.S3Exception;
-import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AnonymousCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
@@ -266,8 +261,9 @@ public class AmazonS3Utils {
 	 *             if the s3 endpoint is not reachable
 	 */
 	public static void ensureS3EndpointIsReachable(final S3Client s3) throws N5Exception.N5IOException {
+		ListBucketsRequest endpointReachableRequest = ListBucketsRequest.builder().maxBuckets(1).build();
 		try {
-			s3.listBuckets();
+			s3.listBuckets(endpointReachableRequest);
 		} catch (Exception e) {
 			throw new N5Exception.N5IOException("Could not reach S3 endpoint", e);
 		}

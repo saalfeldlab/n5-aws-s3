@@ -1,17 +1,20 @@
 package org.janelia.saalfeldlab.n5.s3;
 
 import org.janelia.saalfeldlab.n5.IoPolicy;
+import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.readdata.LazyRead;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
 import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.janelia.saalfeldlab.n5.s3.AmazonS3KeyValueAccess.addTrailingSlash;
+import static org.janelia.saalfeldlab.n5.s3.AmazonS3KeyValueAccess.*;
 
 public interface S3IoPolicy extends IoPolicy {
 
@@ -42,7 +45,7 @@ public interface S3IoPolicy extends IoPolicy {
 
         @Override
         public VolatileReadData read(String key) {
-            return VolatileReadData.from(new AmazonS3KeyValueAccess.S3LazyRead(s3, bucketName, key, false));
+            return VolatileReadData.from(new S3LazyRead(s3, bucketName, key, false));
         }
 
         @Override
@@ -98,9 +101,74 @@ public interface S3IoPolicy extends IoPolicy {
 
         @Override
         public VolatileReadData read(String key) {
-            return VolatileReadData.from(new AmazonS3KeyValueAccess.S3LazyRead(s3, bucketName, key, true));
+            return VolatileReadData.from(new S3LazyRead(s3, bucketName, key, true));
         }
     }
 
-    ;
+    class S3LazyRead implements LazyRead {
+
+        private final String s3Key;
+        private final boolean verifyEtag;
+        private final S3Client s3;
+        private final String bucketName;
+        private String eTag = null;
+
+
+        S3LazyRead(final S3Client s3, final String bucketName, final String s3Key, final boolean verifyEtag) {
+            this.s3 = s3;
+            this.bucketName = bucketName;
+            this.s3Key = s3Key;
+            this.verifyEtag = verifyEtag;
+        }
+
+        private GetObjectRequest createObjectRequest(final String s3Key, long offset, long length) {
+
+
+            final GetObjectRequest.Builder requestBuilder = GetObjectRequest.builder()
+                    .key(s3Key)
+                    .bucket(bucketName);
+
+            // Only add range header if we're doing a partial read
+            if (offset > 0 || length > 0) {
+                // HTTP Range header format: "bytes=start-end"
+                // If length is 0 or negative, read from offset to end of file
+                final String range = length > 0
+                        ? String.format("bytes=%d-%d", offset, offset + length - 1)
+                        : String.format("bytes=%d-", offset);
+                requestBuilder.range(range);
+            }
+
+            if (verifyEtag && eTag != null)
+                requestBuilder.ifMatch(eTag);
+
+            return requestBuilder.build();
+        }
+
+        @Override public ReadData materialize(long offset, long length) throws N5Exception.N5IOException {
+
+            final ResponseBytes<GetObjectResponse> response = rethrowS3Exceptions(() -> {
+                final GetObjectRequest request = createObjectRequest(s3Key, offset, length);
+                ResponseBytes<GetObjectResponse> responseBytes = s3.getObject(request, ResponseTransformer.toBytes());
+                if (verifyEtag && eTag == null)
+                    eTag = responseBytes.response().eTag();
+                return responseBytes;
+            });
+            return ReadData.from(response.asByteArray());
+        }
+
+        @Override public long size() throws N5Exception.N5IOException {
+
+            final HeadObjectResponse response = headObjectRequest(s3, bucketName, s3Key, eTag);
+
+            if (verifyEtag && eTag == null)
+                eTag = response.eTag();
+
+            return response.contentLength();
+        }
+
+        @Override
+        public void close() {
+            eTag = null;
+        }
+    }
 }

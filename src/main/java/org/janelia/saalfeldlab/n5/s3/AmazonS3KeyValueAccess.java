@@ -51,7 +51,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	private final S3Client s3;
 	private final URI containerURI;
 	private final String bucketName;
-	private final S3IoPolicy ioPolicy;
+	private S3IoPolicy ioPolicy;
 
 	private final boolean createBucket;
 	private Boolean bucketCheckedAndExists = null;
@@ -108,6 +108,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 	}
 
+	public void setIoPolicy(S3IoPolicy ioPolicy) {
+		this.ioPolicy = ioPolicy;
+	}
+
 	private S3IoPolicy setIoPolicy() {
 
 		String ioPolicy = System.getProperty("n5.ioPolicy");
@@ -116,9 +120,9 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		switch (ioPolicy) {
 			case "unsafe":
-			case "atomicFallbackUnsafe": // For S3, this is equivalent ot just Unsafe
 				return new S3IoPolicy.Unsafe(s3, bucketName);
-			case "atomic":
+			case "permissive": // For S3, this is equivalent ot just strict
+			case "strict":
 			default:
 				return new S3IoPolicy.EtagMatch(s3, bucketName);
 		}

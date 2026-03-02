@@ -159,9 +159,8 @@ public class AmazonS3Utils {
 
 	public static Region getS3Region(final S3Uri uri, final Region region) {
 
-		final Region regionFromUri = uri.region().orElse(null);
-		return regionFromUri != null ? regionFromUri : region;
-	}
+        return uri.region().orElse(region);
+    }
 
 	public static AwsCredentialsProvider getS3Credentials(final AwsCredentials s3Credentials, final boolean s3Anonymous) {
 
@@ -199,29 +198,33 @@ public class AmazonS3Utils {
     public static S3Client createS3(final String uri, @Nullable final Consumer<S3ClientBuilder> builderConfig) {
 		S3ClientBuilder builder = S3Client.builder();
 
-        URI endpoint = parseEndpointFromURI(uri);
-        if (endpoint != null)
-            builder.endpointOverride(endpoint);
-
-        final boolean isAmazon = endpoint == null || AmazonS3Utils.AWS_ENDPOINT_PATTERN.matcher(endpoint.toString()).find();
-        // Forcing path style is necessary for at least some non-amazon services
-        // (e.g. IDR), as of May 2025
-        if (!isAmazon)
-            builder.forcePathStyle(true);
-
         Region region = null;
+		URI endpoint = null;
         String bucket;
+		boolean isPathStyle;
         try {
             final S3Uri s3Uri = AmazonS3Utils.UTIL.parseUri(new URI(uri));
             bucket = s3Uri.bucket().orElse(null);
             region = getS3Region(s3Uri, region);
+			isPathStyle = s3Uri.isPathStyle();
+			if (isPathStyle)
+            	endpoint = parseEndpointFromURI(s3Uri.uri().toString());
 
         } catch (final IllegalArgumentException | URISyntaxException e) {
             bucket = AmazonS3Utils.getS3Bucket(uri);
+			endpoint = parseEndpointFromURI(uri);
+			isPathStyle = true;
         }
+
+
         if (bucket == null) {
             throw new N5Exception("Could not infer bucket name from uri: " + uri);
         }
+
+		/* May be null, which is equivalent to not calling */
+		builder.endpointOverride(endpoint);
+		/* May be false, which is equivalent to not calling */
+		builder.forcePathStyle(isPathStyle);
 
         AnonymousCredentialsProvider anonymousCredentialsProvider = AnonymousCredentialsProvider.create();
         builder.credentialsProvider(anonymousCredentialsProvider);

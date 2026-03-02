@@ -18,7 +18,7 @@ public class BackendClientFromUriTests {
 	}
 
 	@Test
-	@Ignore("These fail right now")
+//	@Ignore("These fail right now")
 	public void testVirtualHostStyle() {
 
 		check("https://demo-n5-zarr.s3.us-east-1.amazonaws.com/boats.zarr/");

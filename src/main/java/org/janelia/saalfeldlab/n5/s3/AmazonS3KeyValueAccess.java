@@ -228,6 +228,12 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public URI uri(final String normalPath) throws URISyntaxException {
 
+        try {
+			URI asUri = KeyValueAccess.super.uri(normalPath);
+			if (asUri.isAbsolute())
+				return asUri;
+		} catch (Exception e) { }
+
 		return KeyValueAccess.super.uri(compose(containerURI, normalPath));
 	}
 

@@ -295,10 +295,12 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		try {
 			final ListObjectsV2Response objectsListing = queryPrefix(prefix);
-			return objectsListing.keyCount() > 0;
+			Integer keyCount = objectsListing.keyCount();
+			/* keyCount should NEVER be null, and yet we have seen this in the wild... */
+			return keyCount != null && keyCount > 0;
 		} catch (NoSuchBucketException e) {
+			return false;
 		}
-		return false;
 	}
 
 	/**

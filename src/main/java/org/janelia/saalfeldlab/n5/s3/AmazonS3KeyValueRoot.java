@@ -1,0 +1,496 @@
+package org.janelia.saalfeldlab.n5.s3;
+
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueRoot;
+import org.janelia.saalfeldlab.n5.LockingPolicy;
+import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5Exception.N5ConcurrentModificationException;
+import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
+import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
+import org.janelia.saalfeldlab.n5.N5Path;
+import org.janelia.saalfeldlab.n5.N5Path.N5DirectoryPath;
+import org.janelia.saalfeldlab.n5.N5Path.N5FilePath;
+import org.janelia.saalfeldlab.n5.readdata.LazyRead;
+import org.janelia.saalfeldlab.n5.readdata.ReadData;
+import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+
+import static org.janelia.saalfeldlab.n5.LockingPolicy.UNSAFE;
+
+public class AmazonS3KeyValueRoot implements KeyValueRoot
+{
+
+	private final S3Client s3;
+	private final URI root;
+	private final String bucket;
+	private final boolean verifyEtag;
+
+	private final boolean createBucket;
+
+	private Boolean bucketCheckedAndExists = null;
+
+	/**
+	 * Opens an {@link AmazonS3KeyValueRoot} using an {@link S3Client}
+	 * client and a given bucket name.
+	 * <p>
+	 * If the {@code bucket} does not exist and {@code createBucket==true}, the
+	 * bucket will be created. If the bucket does not exist and {@code
+	 * createBucket==false}, the bucket will not be created and all subsequent
+	 * attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param s3
+	 * 		the s3 instance
+	 * @param bucket
+	 * 		the bucket name
+	 * @param root
+	 * 		the URI that points to the n5 container root (relative to the bucket).
+	 * @param createBucket
+	 * 		whether {@code bucket} should be created if it doesn't exist
+	 *
+	 * @throws N5IOException
+	 * 		if the access could not be created
+	 */
+	public AmazonS3KeyValueRoot(
+			final S3Client s3,
+			final String bucket,
+			final URI root,
+			final boolean createBucket) throws N5IOException {
+
+		this.s3 = s3;
+		this.bucket = bucket;
+		this.root = root;
+		this.createBucket = createBucket;
+
+		validateRoot(root);
+
+		final LockingPolicy policy = LockingPolicy.fromString(System.getProperty("n5.ioPolicy", "strict"));
+		verifyEtag = (policy != UNSAFE);
+
+		if (!bucketExists()) {
+			if (createBucket) {
+				s3.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
+				bucketCheckedAndExists = true;
+			} else {
+				throw new N5IOException(
+						"Bucket " + bucket + " does not exist, and you told me not to create one.");
+			}
+		}
+	}
+
+	public AmazonS3KeyValueRoot(
+			final S3Client s3,
+			final String bucket,
+			final String root,
+			final boolean createBucket) throws N5IOException {
+
+		this(s3, bucket, N5DirectoryPath.of(root).uri(), createBucket);
+	}
+
+	private static void validateRoot(final URI root) {
+
+		if (root.getScheme() != null || root.getAuthority() != null) {
+			throw new IllegalArgumentException("root must be a relative URI, but was: " + root);
+		}
+		final String path = root.getPath();
+		if (path == null) {
+			throw new IllegalArgumentException("root must have a path component, but was: " + root);
+		}
+		if (path.startsWith("/")) {
+			throw new IllegalArgumentException("root must not start with '/', but was: " + root);
+		}
+		if (!path.isEmpty() && !path.endsWith("/")) {
+			throw new IllegalArgumentException("root must be empty or end with '/', but was: " + root);
+		}
+	}
+
+	// ------------------------------------------------------------------------
+	//
+ 	// -- from AmazonS3KeyValueAccess --
+	//
+
+	private boolean bucketExists() {
+
+		if (bucketCheckedAndExists == null)
+			bucketCheckedAndExists = AmazonS3Utils.bucketExists(s3, bucket);
+		return bucketCheckedAndExists;
+	}
+
+	private void createBucket() {
+
+		if (!createBucket)
+			throw new N5Exception("Create Bucket Not Allowed");
+
+		if (bucketExists())
+			return;
+
+		try {
+			s3.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
+			bucketCheckedAndExists = true;
+		} catch (Exception e) {
+			throw new N5Exception("Could not create bucket " + bucket, e);
+		}
+
+	}
+
+	private void deleteBucket() {
+
+		if (!createBucket)
+			throw new N5Exception("Delete Bucket Not Allowed");
+
+		// TODO consider not checking existence of bucket
+		if (!bucketExists())
+			return;
+
+		try {
+			AmazonS3Utils.deleteBucket(s3, bucket);
+			bucketCheckedAndExists = false;
+		} catch (S3Exception e) {
+			throw new N5Exception("Could not delete bucket " + bucket, e);
+		}
+	}
+
+	//
+	// -- from AmazonS3KeyValueAccess --
+	//
+	// ------------------------------------------------------------------------
+
+	@Override
+	public synchronized KeyValueAccess getKVA() {
+		if (kva == null) {
+			final String containerURI = URI.create("s3://" + bucket + "/").resolve(root).toString();
+			kva = new AmazonS3KeyValueAccess(s3, containerURI, createBucket);
+		}
+		return kva;
+	}
+	private AmazonS3KeyValueAccess kva;
+
+	@Override
+	public URI uri() {
+		return URI.create("s3://" + bucket + "/").resolve(root);
+	}
+
+	@Override
+	public VolatileReadData createReadData(final N5FilePath normalPath) throws N5IOException {
+
+		final String key = root.resolve(normalPath.uri()).getPath();
+		return VolatileReadData.from(new S3LazyRead(key));
+	}
+
+	/**
+	 * Test whether the path is a directory.
+	 * <p>
+	 * Appends trailing "/" to {@code normalPath} if there is none and then
+	 * checks whether resulting {@code path} is a key.
+	 *
+	 * @param normalPath
+	 * 		(relative to container root)
+	 * 		is expected to be in normalized form, no further efforts are made to normalize it.
+	 * @return {@code true} if {@code path} (with trailing "/") exists as a key, {@code false} otherwise
+	 */
+	@Override
+	public boolean isDirectory(final N5Path normalPath) {
+
+		final URI uri = root.resolve(normalPath.asDirectory().uri());
+		final String prefix = uri.getPath();
+
+		if (prefix.isEmpty()) {
+			return bucketExists();
+		}
+
+		try {
+			final ListObjectsV2Request listObjectsV2Request = ListObjectsV2Request.builder()
+					.bucket(bucket)
+					.prefix(prefix)
+					.maxKeys(1)
+					.build();
+			final Integer keyCount = s3.listObjectsV2(listObjectsV2Request).keyCount();
+			/* keyCount should NEVER be null, and yet we have seen this in the wild... */
+			return keyCount != null && keyCount > 0;
+		} catch (NoSuchBucketException e) {
+			return false;
+		}
+	}
+
+	/**
+	 * Test whether the path is a file.
+	 * <p>
+	 * Checks whether {@code normalPath} has no trailing "/", then removes
+	 * leading "/" and checks whether the resulting {@code path} is a key.
+	 * <p>
+	 * Does not distinguish between an object not existing and not having
+	 * permissions to access the object.
+	 *
+	 * @param normalPath is expected to be in normalized form, no further
+	 *                   efforts are made to normalize it.
+	 * @return {@code true} if {@code path} exists as a key and has no trailing slash, {@code false} otherwise
+	 */
+	@Override
+	public boolean isFile(final N5Path normalPath) {
+
+		if (normalPath.isDirectory()) {
+			return false;
+		}
+
+		final String key = root.resolve(normalPath.uri()).getPath();
+		try {
+			// TODO needs testing.
+			// 	the exception thrown may depend on permissions
+			headObjectRequest(key, null);
+			return true;
+		} catch (N5NoSuchKeyException e) {
+			return false;
+		}
+	}
+
+	@Override
+	public boolean exists(final N5Path normalPath) {
+		return isFile(normalPath) || isDirectory(normalPath);
+	}
+
+	@Override
+	public long size(final N5FilePath normalPath) throws N5IOException {
+		final String key = root.resolve(normalPath.uri()).getPath();
+		return headObjectRequest(key, null).contentLength();
+	}
+
+	@Override
+	public void write(final N5FilePath normalPath, final ReadData data) throws N5IOException {
+
+		try {
+			final String key = root.resolve(normalPath.uri()).getPath();
+			final PutObjectRequest putRequest = PutObjectRequest.builder()
+					.bucket(bucket)
+					.key(key)
+					.build();
+
+			s3.putObject(putRequest, RequestBody.fromBytes(data.allBytes()));
+		} catch (final Exception e) {
+			throw wrapS3Exception(e);
+		}
+	}
+
+	@Override
+	public String[] listDirectories(final N5DirectoryPath normalPath) throws N5IOException {
+
+		final String prefix = root.resolve(normalPath.uri()).getPath();
+
+		final ListObjectsV2Request listObjectsV2Request = ListObjectsV2Request.builder()
+				.bucket(bucket)
+				.prefix(prefix)
+				.delimiter("/")
+				.build();
+
+		final List<String> subGroups = new ArrayList<>();
+		s3.listObjectsV2Paginator(listObjectsV2Request).commonPrefixes().forEach(p -> {
+			final String pp = p.prefix();
+			if (pp.endsWith("/")) {
+				final String relativePath = pp.substring( prefix.length(), pp.length() - 1 );
+				if (!relativePath.isEmpty())
+					subGroups.add(relativePath);
+			}
+		});
+
+		if (subGroups.size() <= 0) {
+			if(!isDirectory(normalPath))
+				throw new N5NoSuchKeyException(normalPath + " is not a valid group");
+		}
+
+		return subGroups.toArray(new String[0]);
+	}
+
+	@Override
+	public void createDirectories(final N5DirectoryPath normalPath) throws N5IOException {
+
+		if (!bucketExists() && createBucket) { // TODO: revisit bucket creation logic
+			createBucket();
+		}
+
+		final N5DirectoryPath group = N5DirectoryPath.of(root.resolve(normalPath.uri()).getPath()); // TODO (N5Path): should have N5DirectoryPath.of(URI) ?
+		if (group.path().isEmpty()) // TODO (N5Path): should have N5DirectoryPath.isEmpty() ?
+			return;
+
+		String key = "";
+		for (final String child : group.components()) {
+			key += child + "/";
+			final PutObjectRequest putOb = PutObjectRequest.builder()
+					.bucket(bucket)
+					.key(key)
+					.contentLength((long)0)
+					.build();
+			s3.putObject(putOb, RequestBody.fromBytes(new byte[0]));
+		}
+	}
+
+	@Override
+	public void delete(final N5Path normalPath) throws N5IOException {
+
+		if (!bucketExists())
+			return;
+
+		final URI uri = root.resolve(normalPath.uri());
+		final String key = uri.getPath();
+
+		// remove bucket when deleting "/"
+		if (key.isEmpty() || key.equals("/")) {
+			deleteBucket(); // also deletes all contents
+			return;
+		}
+
+		try {
+			if (!key.endsWith("/")) {
+				final DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+						.bucket(bucket)
+						.key(key)
+						.build();
+				s3.deleteObject(deleteRequest);
+			}
+
+			final String prefix = key.endsWith("/") ? key : key + "/";
+			final ListObjectsV2Request listObjectsRequest = ListObjectsV2Request.builder()
+					.bucket(bucket)
+					.prefix(prefix)
+					.build();
+
+			ListObjectsV2Response objectsListing;
+			do {
+				objectsListing = s3.listObjectsV2(listObjectsRequest);
+				final List<ObjectIdentifier> objectsToDelete = objectsListing.contents().stream()
+						.map(obj -> ObjectIdentifier.builder().key(obj.key()).build())
+						.collect(Collectors.toList());
+
+				if (!objectsToDelete.isEmpty()) {
+					final DeleteObjectsRequest deleteRequest = DeleteObjectsRequest.builder()
+							.bucket(bucket)
+							.delete(Delete.builder().objects(objectsToDelete).build())
+							.build();
+					s3.deleteObjects(deleteRequest);
+				}
+			} while (objectsListing.isTruncated());
+		} catch (Exception e) {
+			throw wrapS3Exception(e);
+		}
+	}
+
+
+	//
+	// ------------------------------------------------------------------------
+	//
+
+
+	class S3LazyRead implements LazyRead {
+
+		private final String key;
+		private volatile String eTag = null;
+
+		S3LazyRead(final String key) {
+			this.key = key;
+		}
+
+		@Override
+		public ReadData materialize(final long offset, final long length) throws N5IOException {
+
+			final ResponseBytes<GetObjectResponse> response = getObjectRequest(key, offset, length, eTag);
+
+			if (verifyEtag && eTag == null)
+				eTag = response.response().eTag();
+
+			return ReadData.from(response.asByteArray());
+		}
+
+		@Override
+		public long size() throws N5IOException {
+
+			final HeadObjectResponse response = headObjectRequest(key, eTag);
+
+			if (verifyEtag && eTag == null)
+				eTag = response.eTag();
+
+			return response.contentLength();
+		}
+
+		@Override
+		public void close() {
+		}
+	}
+
+	private HeadObjectResponse headObjectRequest(final String key, final String ifMatch) throws N5IOException {
+
+		try {
+			final HeadObjectRequest request = HeadObjectRequest.builder()
+					.bucket(bucket)
+					.key(key)
+					.ifMatch(ifMatch)
+					.build();
+			return s3.headObject(request);
+		} catch (final Exception e) {
+			throw wrapS3Exception(e);
+		}
+	}
+
+	private ResponseBytes<GetObjectResponse> getObjectRequest(final String key, final long offset, final long length, final String ifMatch) throws N5IOException {
+
+		try {
+			final GetObjectRequest.Builder requestBuilder = GetObjectRequest.builder()
+					.bucket(bucket)
+					.key(key)
+					.ifMatch(ifMatch);
+
+			// Only add range header if we're doing a partial read
+			if (offset > 0 || length > 0) {
+				// HTTP Range header format: "bytes=start-end"
+				// If length is 0 or negative, read from offset to end of file
+				final String range = length > 0
+						? String.format("bytes=%d-%d", offset, offset + length - 1)
+						: String.format("bytes=%d-", offset);
+				requestBuilder.range(range);
+			}
+
+			final GetObjectRequest request = requestBuilder.build();
+
+			return s3.getObject(request, ResponseTransformer.toBytes());
+		} catch (final Exception e) {
+			throw wrapS3Exception(e);
+		}
+	}
+
+	private static N5IOException wrapS3Exception(final Exception e) {
+
+		if (e instanceof NoSuchKeyException) {
+			return new N5NoSuchKeyException("No such key", e);
+		} else if (e instanceof AwsServiceException) {
+			final int statusCode = ((AwsServiceException) e).awsErrorDetails().sdkHttpResponse().statusCode();
+			if (statusCode == 404 || statusCode == 403) {
+				return new N5NoSuchKeyException("No such key", e);
+			} else if (statusCode == 412) {
+				return new N5ConcurrentModificationException("eTag has changed since initial request", e);
+			} else {
+				return new N5IOException("S3 Exception", e);
+			}
+		} else {
+			return new N5IOException(e);
+		}
+	}
+}

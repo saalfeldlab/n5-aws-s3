@@ -1,13 +1,18 @@
 package org.janelia.saalfeldlab.n5.s3;
 
 import com.google.gson.GsonBuilder;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.SecureRandom;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.function.Supplier;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
-import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5KeyValueReader;
 import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
+import org.janelia.saalfeldlab.n5.N5Path;
 import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.s3.backend.BackendS3Factory;
 import org.junit.Ignore;
@@ -18,18 +23,10 @@ import org.junit.runner.Description;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.model.Statement;
-
 import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.S3Exception;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.security.SecureRandom;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.function.Supplier;
 
 import static org.janelia.saalfeldlab.n5.s3.AmazonS3Utils.getS3Bucket;
 import static org.junit.Assume.assumeTrue;
@@ -145,8 +142,10 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 		for (LocationInBucket location : LocationInBucket.values()) {
 			final String bucketName = location.getBucketName();
 			try {
-				final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(lateinitS3, N5URI.encodeAsUri("s3://" + bucketName), true);
-				kva.delete(kva.normalize("/"));
+				final AmazonS3KeyValueRoot kvr = new AmazonS3KeyValueRoot(lateinitS3, bucketName, URI.create(""), true);
+				kvr.delete(N5Path.of(""));
+//				final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(lateinitS3, N5URI.encodeAsUri("s3://" + bucketName), true);
+//				kva.delete(kva.normalize("/"));
 			} catch (Exception e) {
 
 				if( !AmazonS3Utils.bucketExists(lateinitS3, bucketName))
@@ -202,18 +201,13 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 	private N5KeyValueWriter delayedBucketCreationWriter(String s3ContainerUri, GsonBuilder gson) {
 
 		final String bucketName = getS3Bucket(s3ContainerUri);
+		final String root = AmazonS3Utils.getS3Key(s3ContainerUri);
+		final AmazonS3KeyValueRoot kvr = new AmazonS3KeyValueRoot(getS3(), bucketName, root, true);
 
-		final KeyValueAccess s3kva = new AmazonS3KeyValueAccess(getS3(), URI.create(s3ContainerUri), true);
-
-		return new N5KeyValueWriter(s3kva, s3ContainerUri, gson, useCache.cache) {
+		return new N5KeyValueWriter(kvr, gson, useCache.cache) {
 
 			{
-				final URI containerUri;
-				try {
-					containerUri = s3kva.uri("");
-				} catch (URISyntaxException e) {
-					throw new RuntimeException(e);
-				}
+				final URI containerUri = kvr.uri();
 				final boolean localS3 = containerUri.getAuthority().contains("localhost");
 				if (!localS3) {
 					/* Creating a bucket on S3 only provides a guarantee of eventual consistency. To
@@ -248,14 +242,10 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 	@Override
 	protected N5Reader createN5Reader(final String location, final GsonBuilder gson) {
 
-		final KeyValueAccess s3kva;
-		try {
-			s3kva = new AmazonS3KeyValueAccess(getS3(), new URI(location), false);
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
-
-		return new N5KeyValueReader(s3kva, location, gson, useCache.cache);
+		final String bucketName = getS3Bucket(location);
+		final String root = AmazonS3Utils.getS3Key(location);
+		final AmazonS3KeyValueRoot kvr = new AmazonS3KeyValueRoot(getS3(), bucketName, root, false);
+		return new N5KeyValueReader(kvr, gson, useCache.cache);
 	}
 
 	@Test

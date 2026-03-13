@@ -381,6 +381,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isFile(final String normalPath) {
 
+		System.out.println("AmazonS3KeyValueAccess.isFile");
 		final String key = AmazonS3Utils.getS3Key(normalPath);
 		return !key.endsWith("/") && keyExists(removeLeadingSlash(key));
 	}
@@ -388,6 +389,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public long size(String normalPath) throws N5NoSuchKeyException {
 
+		System.out.println("AmazonS3KeyValueAccess.size");
 		final String key = removeLeadingSlash(AmazonS3Utils.getS3Key(normalPath));
 		return headObjectRequest(s3, bucketName, key, null).contentLength();
 	}
@@ -395,6 +397,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public VolatileReadData createReadData(String normalPath) throws N5Exception.N5IOException {
 
+		System.out.println("AmazonS3KeyValueAccess.createReadData");
 		final String key = AmazonS3Utils.getS3Key(normalPath);
         try {
             return ioPolicy.read(key);
@@ -406,6 +409,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public void write(final String normalPath, final ReadData data) throws N5IOException {
 
+		System.out.println("AmazonS3KeyValueAccess.write");
 		final String key = AmazonS3Utils.getS3Key(normalPath);
 		final String normalizedKey = removeLeadingSlash(key);
 
@@ -423,6 +427,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public String[] listDirectories(final String normalPath) {
 
+		System.out.println("AmazonS3KeyValueAccess.listDirectories");
 		final String[] directories = list(normalPath, true);
 		for (int i = 0; i < directories.length; i++) {
 			/* list can return `/` suffix if a directory, but this is not enforced.
@@ -464,6 +469,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public String[] list(final String normalPath) {
 
+		System.out.println("AmazonS3KeyValueAccess.list");
 		return list(normalPath, false);
 	}
 
@@ -498,6 +504,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public void delete(final String normalPath) {
 
+		System.out.println("AmazonS3KeyValueAccess.delete");
 		if (!bucketExists())
 			return;
 
@@ -509,6 +516,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 		final String key = removeLeadingSlash(AmazonS3Utils.getS3Key(normalPath));
         try {
+			System.out.println("deleting key = " + key);
             ioPolicy.delete(key);
         } catch (IOException e) {
             throw new N5IOException(e);

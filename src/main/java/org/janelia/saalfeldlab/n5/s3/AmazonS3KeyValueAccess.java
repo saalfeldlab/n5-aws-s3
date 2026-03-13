@@ -433,6 +433,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public String[] listDirectories(final String normalPath) {
 
 		System.out.println("AmazonS3KeyValueAccess.listDirectories");
+		new Throwable().printStackTrace();
 		final String[] directories = list(normalPath, true);
 		for (int i = 0; i < directories.length; i++) {
 			/* list can return `/` suffix if a directory, but this is not enforced.
@@ -441,6 +442,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			directories[i] = normalize(directories[i]);
 		}
 		return directories;
+	}
+	@Override
+	public String[] rooted_listDirectories(final String normalPath) {
+		return rkva.listDirectories(createURI(normalPath));
 	}
 
 	private String[] list(final String normalPath, final boolean onlyDirectories) {

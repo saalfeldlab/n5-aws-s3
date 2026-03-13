@@ -241,10 +241,10 @@ public class AmazonS3RootedKeyValueAccess
 	}
 
 //	@Override
-//	public String[] listDirectories(final URI normalPath) throws N5IOException {
-//		throw new UnsupportedOperationException("TODO. not implemented yet");
-//	}
-//
+	public String[] listDirectories(final URI normalPath) throws N5IOException {
+		throw new UnsupportedOperationException("TODO. not implemented yet");
+	}
+
 //	@Override
 	public void createDirectories(final URI normalPath) throws N5IOException {
 

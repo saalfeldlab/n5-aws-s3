@@ -30,10 +30,15 @@ import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 //import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
+//import org.janelia.saalfeldlab.n5.RootedURI;
+//import org.janelia.saalfeldlab.n5.RootedURI.N5GroupPath;
+import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5GroupPath;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 public class AmazonS3RootedKeyValueAccess
@@ -179,7 +184,7 @@ public class AmazonS3RootedKeyValueAccess
 //	@Override
 	public boolean isDirectory(final URI normalPath) {
 
-		final URI uri = root.resolve(S3RootedURI.N5GroupPath.of(normalPath.getPath()).uri()); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
+		final URI uri = root.resolve(N5GroupPath.of(normalPath.getPath()).uri()); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
 		final String prefix = uri.getPath();
 
 		if (prefix.isEmpty()) {
@@ -228,21 +233,24 @@ public class AmazonS3RootedKeyValueAccess
 //	@Override
 	public void createDirectories(final URI normalPath) throws N5IOException {
 
-		System.out.println("normalPath = " + normalPath);
-		// TODO NEXT
-		//  ==>
-		//  ==>
-		//  ==>
-		//  ==>
-		//  ==>
-		//  ==>
-		//  ==>
-		//  ==>
-		// TODO: ensure bucket exists
-		//       root.resolve(normalPath)
-		//       split on "/"
-		//       iterate components ---> where have we done this already?
-//		throw new UnsupportedOperationException("TODO. not implemented yet");
+		if (!bucketExists() && createBucket) { // TODO: revisit bucket creation logic
+			createBucket();
+		}
+
+		final N5GroupPath group = N5GroupPath.of(root.resolve(normalPath).getPath());
+		if (group.normalPath().isEmpty())
+			return;
+
+		String key = "";
+		for (final String child : group.components()) {
+			key += child + "/";
+			final PutObjectRequest putOb = PutObjectRequest.builder()
+					.bucket(bucketName)
+					.key(key)
+					.contentLength((long)0)
+					.build();
+			s3.putObject(putOb, RequestBody.fromBytes(new byte[0]));
+		}
 	}
 //
 //	@Override

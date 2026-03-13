@@ -108,6 +108,8 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 	}
 
+	public AmazonS3RootedKeyValueAccess rkva;
+
 	public void setIoPolicy(S3IoPolicy ioPolicy) {
 		this.ioPolicy = ioPolicy;
 	}
@@ -349,6 +351,23 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		return prefixExists(key);
 	}
 
+	@Override
+	public boolean rooted_isDirectory(String normalPath) {
+		return rkva.isDirectory(createURI(normalPath));
+	}
+	private static URI createURI(final String normalPath) throws N5IOException {
+		try {
+			return new URI(null, null, normalPath, null);
+		} catch (URISyntaxException e) {
+			// This should be unreachable: Scheme/authority/fragment are null
+			// and the path component accepts virtually anything
+			throw new N5IOException(e);
+		}
+	}
+
+
+
+
 	/**
 	 * Test whether the path is a file.
 	 * <p>
@@ -466,6 +485,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 
 			s3.putObject(putOb, RequestBody.fromBytes(new byte[0]));
 		}
+	}
+	@Override
+	public void rooted_createDirectories(String normalPath) {
+		rkva.createDirectories(createURI(normalPath));
 	}
 
 	@Override

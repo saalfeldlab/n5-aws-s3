@@ -29,15 +29,10 @@ import java.net.URI;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
-import org.janelia.saalfeldlab.n5.N5URI;
 //import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
-//import org.janelia.saalfeldlab.n5.RootedURI;
-import org.janelia.saalfeldlab.n5.readdata.ReadData;
-import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -46,8 +41,8 @@ public class AmazonS3RootedKeyValueAccess
 {
 
 	private final S3Client s3;
-	private final URI root; // TODO rename to "root"
-	private final String bucketName;
+	private final URI root;
+	private final String bucketName; // TODO: rename to "bucket"
 	private S3IoPolicy ioPolicy;
 
 	private final boolean createBucket;
@@ -65,22 +60,25 @@ public class AmazonS3RootedKeyValueAccess
 	 * @param s3
 	 * 		the s3 instance
 	 * @param root
-	 * 		the URI that points to the n5 container root.
+	 * 		the URI that points to the n5 container root (relative to the bucket).
 	 * @param createBucket
 	 * 		whether {@code bucketName} should be created if it doesn't exist
 	 *
 	 * @throws N5IOException
 	 * 		if the access could not be created
 	 */
-	public AmazonS3RootedKeyValueAccess(final S3Client s3, final URI root, final boolean createBucket) throws N5IOException {
+	public AmazonS3RootedKeyValueAccess(
+			final S3Client s3,
+			final String bucketName,
+			final URI root,
+			final boolean createBucket) throws N5IOException {
 
 		this.s3 = s3;
-		this.root = root;
-
-		this.bucketName = AmazonS3Utils.getS3Bucket(root);
+		this.bucketName = bucketName;
+		this.root = root; // TODO: We expect root to be a relative URI ending in "/" (or ""). Make sure of that.
 		this.createBucket = createBucket;
 
-		this.ioPolicy = setIoPolicy();
+		this.ioPolicy = new S3IoPolicy.Unsafe(s3, bucketName); // TODO: IoPolicy
 
 		if (!bucketExists()) {
 			if (createBucket) {
@@ -97,26 +95,6 @@ public class AmazonS3RootedKeyValueAccess
 	//
  	// -- from AmazonS3KeyValueAccess --
 	//
-
-	public void setIoPolicy(S3IoPolicy ioPolicy) {
-		this.ioPolicy = ioPolicy;
-	}
-
-	private S3IoPolicy setIoPolicy() {
-
-		String ioPolicy = System.getProperty("n5.ioPolicy");
-		if (ioPolicy == null)
-			return new S3IoPolicy.EtagMatch(s3, bucketName);
-
-		switch (ioPolicy) {
-			case "unsafe":
-				return new S3IoPolicy.Unsafe(s3, bucketName);
-			case "permissive": // For S3, this is equivalent ot just strict
-			case "strict":
-			default:
-				return new S3IoPolicy.EtagMatch(s3, bucketName);
-		}
-    }
 
 	private boolean bucketExists() {
 
@@ -164,57 +142,57 @@ public class AmazonS3RootedKeyValueAccess
 	//
 	// ------------------------------------------------------------------------
 
-
-
-
-
 //	@Override
-//	public synchronized KeyValueAccess getKVA() {
-//		if (kva == null)
-//			kva = new AmazonS3KeyValueAccess(s3, root, false);
-//		return kva;
-//	}
-//	private AmazonS3KeyValueAccess kva;
+	public synchronized KeyValueAccess getKVA() {
+		if (kva == null) {
+			final String containerURI = URI.create("s3://" + bucketName + "/").resolve(root).toString();
+			kva = new AmazonS3KeyValueAccess(s3, containerURI, createBucket);
+		}
+		return kva;
+	}
+	private AmazonS3KeyValueAccess kva;
 //
 //	@Override
-//	public URI root() {
-//		return root;
-//	}
+	public URI root() {
+		// TODO: Should this be root or the full "s3://..." URI ???
+		//       ==> What is RootedKeyValueAccess.root() used for ???
+		return root;
+	}
 //
 //	@Override
 //	public VolatileReadData createReadData(final URI normalPath) throws N5IOException {
 //		throw new UnsupportedOperationException("TODO. not implemented yet");
 //	}
 //
-//	/**
-//	 * Test whether the path is a directory.
-//	 * <p>
-//	 * Appends trailing "/" to {@code normalPath} if there is none, removes
-//	 * leading "/", and then checks whether resulting {@code path} is a key.
-//	 *
-//	 * @param normalPath is expected to be in normalized form, no further
-//	 *                   efforts are made to normalize it.
-//	 * @return {@code true} if {@code path} (with trailing "/") exists as a key, {@code false} otherwise
-//	 */
-//	@Override
-//	public boolean isDirectory(final URI normalPath) {
-//
-//		final URI uri = root.resolve(RootedURI.N5GroupPath.of(normalPath.getPath()).uri()); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
-//		final String s3Key = AmazonS3Utils.getS3Key(uri);
-//
-//		throw new UnsupportedOperationException("TODO. not implemented yet");
-//	}
 
 	/**
-	 * Check existence of the given {@code prefix}.
+	 * Test whether the path is a directory.
+	 * <p>
+	 * Appends trailing "/" to {@code normalPath} if there is none and then
+	 * checks whether resulting {@code path} is a key.
 	 *
-	 * @return {@code true} if {@code prefix} exists.
+	 * @param normalPath
+	 * 		(relative to container root)
+	 * 		is expected to be in normalized form, no further efforts are made to normalize it.
+	 * @return {@code true} if {@code path} (with trailing "/") exists as a key, {@code false} otherwise
 	 */
-	private boolean prefixExists(final String prefix) {
+//	@Override
+	public boolean isDirectory(final URI normalPath) {
+
+		final URI uri = root.resolve(S3RootedURI.N5GroupPath.of(normalPath.getPath()).uri()); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
+		final String prefix = uri.getPath();
+
+		if (prefix.isEmpty()) {
+			return bucketExists();
+		}
 
 		try {
-			final ListObjectsV2Response objectsListing = queryPrefix(prefix);
-			final Integer keyCount = objectsListing.keyCount();
+			final ListObjectsV2Request listObjectsV2Request = ListObjectsV2Request.builder()
+					.bucket(bucketName)
+					.prefix(prefix)
+					.maxKeys(1)
+					.build();
+			final Integer keyCount = s3.listObjectsV2(listObjectsV2Request).keyCount();
 			/* keyCount should NEVER be null, and yet we have seen this in the wild... */
 			return keyCount != null && keyCount > 0;
 		} catch (NoSuchBucketException e) {
@@ -222,21 +200,6 @@ public class AmazonS3RootedKeyValueAccess
 		}
 	}
 
-	private ListObjectsV2Response queryPrefix(final String prefix) {
-
-		final ListObjectsV2Request listObjectsV2Request = ListObjectsV2Request.builder()
-				.bucket(bucketName)
-				.prefix(prefix)
-				.maxKeys(1)
-				.build();
-
-		return s3.listObjectsV2(listObjectsV2Request);
-	}
-//
-//
-//
-//
-//
 //	@Override
 //	public boolean isFile(final URI normalPath) {
 //		throw new UnsupportedOperationException("TODO. not implemented yet");
@@ -263,9 +226,24 @@ public class AmazonS3RootedKeyValueAccess
 //	}
 //
 //	@Override
-//	public void createDirectories(final URI normalPath) throws N5IOException {
+	public void createDirectories(final URI normalPath) throws N5IOException {
+
+		System.out.println("normalPath = " + normalPath);
+		// TODO NEXT
+		//  ==>
+		//  ==>
+		//  ==>
+		//  ==>
+		//  ==>
+		//  ==>
+		//  ==>
+		//  ==>
+		// TODO: ensure bucket exists
+		//       root.resolve(normalPath)
+		//       split on "/"
+		//       iterate components ---> where have we done this already?
 //		throw new UnsupportedOperationException("TODO. not implemented yet");
-//	}
+	}
 //
 //	@Override
 //	public void delete(final URI normalPath) throws N5IOException {

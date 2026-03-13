@@ -231,7 +231,12 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 
 		final String bucketName = getS3Bucket(s3ContainerUri);
 
-		final KeyValueAccess s3kva = new AmazonS3KeyValueAccess(getS3(), URI.create(s3ContainerUri), true);
+		final AmazonS3KeyValueAccess s3kva = new AmazonS3KeyValueAccess(getS3(), URI.create(s3ContainerUri), true);
+
+		final String key = AmazonS3Utils.getS3Key(s3ContainerUri);
+		final S3RootedURI.N5GroupPath n5GroupPath = S3RootedURI.N5GroupPath.of(key);
+		final AmazonS3RootedKeyValueAccess rkva = new AmazonS3RootedKeyValueAccess(getS3(), bucketName, n5GroupPath.uri(), true);
+		s3kva.rkva = rkva;
 
 		return new N5KeyValueWriter(s3kva, s3ContainerUri, gson, useCache.cache) {
 

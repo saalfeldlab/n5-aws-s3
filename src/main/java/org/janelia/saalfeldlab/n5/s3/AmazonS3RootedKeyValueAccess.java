@@ -264,7 +264,24 @@ public class AmazonS3RootedKeyValueAccess
 //
 //	@Override
 	public void delete(final URI normalPath) throws N5IOException {
-		throw new UnsupportedOperationException("TODO. not implemented yet");
+
+		if (!bucketExists())
+			return;
+
+		final URI uri = root.resolve(normalPath); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
+		final String key = uri.getPath();
+
+		// remove bucket when deleting "/"
+		if (key.isEmpty() || key.equals("/")) {
+			deleteBucket(); // also deletes all contents
+			return;
+		}
+
+		try {
+			ioPolicy.delete(key);
+		} catch (IOException e) {
+			throw new N5IOException(e);
+		}
 	}
 
 

@@ -514,6 +514,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
             throw new N5IOException(e);
         }
 	}
+	@Override
+	public void rooted_delete(String normalPath) {
+		rkva.delete(createURI(normalPath));
+	}
 
 	public static HeadObjectResponse headObjectRequest(final S3Client s3, final String bucketName, final String key, final String matchEtag) {
 		HeadObjectRequest.Builder requestBuilder = HeadObjectRequest.builder()

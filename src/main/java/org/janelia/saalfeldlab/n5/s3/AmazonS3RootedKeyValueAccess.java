@@ -34,6 +34,7 @@ import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 //import org.janelia.saalfeldlab.n5.RootedURI;
 //import org.janelia.saalfeldlab.n5.RootedURI.N5GroupPath;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
+import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
 import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5FilePath;
 import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5GroupPath;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -168,10 +169,15 @@ public class AmazonS3RootedKeyValueAccess
 	}
 //
 //	@Override
-//	public VolatileReadData createReadData(final URI normalPath) throws N5IOException {
-//		throw new UnsupportedOperationException("TODO. not implemented yet");
-//	}
-//
+	public VolatileReadData createReadData(final URI normalPath) throws N5IOException {
+
+		final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had createReadData(N5FilePath), we wouldn't have to do this
+		try {
+			return ioPolicy.read(key);
+		} catch (IOException e) {
+			throw new N5IOException(e);
+		}
+	}
 
 	/**
 	 * Test whether the path is a directory.
@@ -226,7 +232,7 @@ public class AmazonS3RootedKeyValueAccess
 //	@Override
 	public void write(final URI normalPath, final ReadData data) throws N5IOException {
 
-		final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had write(N5GroupPath), we wouldn't have to do this
+		final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had write(N5FilePath, ...), we wouldn't have to do this
 		try {
 			ioPolicy.write(key, data);
 		} catch (IOException e) {

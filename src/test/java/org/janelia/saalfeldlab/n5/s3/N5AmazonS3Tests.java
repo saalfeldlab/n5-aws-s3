@@ -173,8 +173,10 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 		for (LocationInBucket location : LocationInBucket.values()) {
 			final String bucketName = location.getBucketName();
 			try {
-				final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(lateinitS3, N5URI.encodeAsUri("s3://" + bucketName), true);
-				kva.delete(kva.normalize("/"));
+				final AmazonS3RootedKeyValueAccess rkva = new AmazonS3RootedKeyValueAccess(lateinitS3, bucketName, URI.create(""), true);
+				rkva.delete(URI.create(""));
+//				final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(lateinitS3, N5URI.encodeAsUri("s3://" + bucketName), true);
+//				kva.delete(kva.normalize("/"));
 			} catch (Exception e) {
 
 				if( !AmazonS3Utils.bucketExists(lateinitS3, bucketName))

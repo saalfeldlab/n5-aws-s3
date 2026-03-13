@@ -398,12 +398,17 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public VolatileReadData createReadData(String normalPath) throws N5Exception.N5IOException {
 
 		System.out.println("AmazonS3KeyValueAccess.createReadData");
+		new Throwable().printStackTrace();
 		final String key = AmazonS3Utils.getS3Key(normalPath);
         try {
             return ioPolicy.read(key);
         } catch (IOException e) {
             throw new N5IOException(e);
         }
+	}
+	@Override
+	public VolatileReadData rooted_createReadData(String normalPath) throws N5Exception.N5IOException {
+		return rkva.createReadData(createURI(normalPath));
 	}
 
 	@Override
@@ -505,6 +510,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public void delete(final String normalPath) {
 
 		System.out.println("AmazonS3KeyValueAccess.delete");
+		new Throwable().printStackTrace();
 		if (!bucketExists())
 			return;
 

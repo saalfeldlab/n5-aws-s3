@@ -415,6 +415,10 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
             throw new N5IOException(e);
         }
 	}
+	@Override
+	public void rooted_write(final String normalPath, final ReadData data) {
+		rkva.write(createURI(normalPath), data);
+	}
 
 	@Override
 	public String[] listDirectories(final String normalPath) {

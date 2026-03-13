@@ -25,6 +25,7 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
+import java.io.IOException;
 import java.net.URI;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Exception;
@@ -32,6 +33,8 @@ import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 //import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
 //import org.janelia.saalfeldlab.n5.RootedURI;
 //import org.janelia.saalfeldlab.n5.RootedURI.N5GroupPath;
+import org.janelia.saalfeldlab.n5.readdata.ReadData;
+import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5FilePath;
 import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5GroupPath;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -221,10 +224,16 @@ public class AmazonS3RootedKeyValueAccess
 //	}
 //
 //	@Override
-//	public void write(final URI normalPath, final ReadData data) throws N5IOException {
-//		throw new UnsupportedOperationException("TODO. not implemented yet");
-//	}
-//
+	public void write(final URI normalPath, final ReadData data) throws N5IOException {
+
+		final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had write(N5GroupPath), we wouldn't have to do this
+		try {
+			ioPolicy.write(key, data);
+		} catch (IOException e) {
+			throw new N5IOException(e);
+		}
+	}
+
 //	@Override
 //	public String[] listDirectories(final URI normalPath) throws N5IOException {
 //		throw new UnsupportedOperationException("TODO. not implemented yet");
@@ -254,9 +263,9 @@ public class AmazonS3RootedKeyValueAccess
 	}
 //
 //	@Override
-//	public void delete(final URI normalPath) throws N5IOException {
-//		throw new UnsupportedOperationException("TODO. not implemented yet");
-//	}
+	public void delete(final URI normalPath) throws N5IOException {
+		throw new UnsupportedOperationException("TODO. not implemented yet");
+	}
 
 
 }

@@ -281,9 +281,16 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 	@Override
 	protected N5Reader createN5Reader(final String location, final GsonBuilder gson) {
 
-		final KeyValueAccess s3kva;
+		final AmazonS3KeyValueAccess s3kva;
 		try {
 			s3kva = new AmazonS3KeyValueAccess(getS3(), new URI(location), false);
+
+			final String bucketName = getS3Bucket(location);
+			final String key = AmazonS3Utils.getS3Key(location);
+			final S3RootedURI.N5GroupPath n5GroupPath = S3RootedURI.N5GroupPath.of(key);
+			final AmazonS3RootedKeyValueAccess rkva = new AmazonS3RootedKeyValueAccess(getS3(), bucketName, n5GroupPath.uri(), true);
+			s3kva.rkva = rkva;
+
 		} catch (URISyntaxException e) {
 			throw new RuntimeException(e);
 		}

@@ -27,6 +27,8 @@ package org.janelia.saalfeldlab.n5.s3;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
@@ -242,10 +244,36 @@ public class AmazonS3RootedKeyValueAccess
 
 //	@Override
 	public String[] listDirectories(final URI normalPath) throws N5IOException {
-		throw new UnsupportedOperationException("TODO. not implemented yet");
+
+		final URI uri = root.resolve(N5GroupPath.of(normalPath.getPath()).uri()); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
+		final String prefix = uri.getPath();
+
+		final ListObjectsV2Request listObjectsV2Request = ListObjectsV2Request.builder()
+				.bucket(bucketName)
+				.prefix(prefix)
+				.delimiter("/")
+				.build();
+
+		final List<String> subGroups = new ArrayList<>();
+		s3.listObjectsV2Paginator(listObjectsV2Request).commonPrefixes().forEach(p -> {
+			final String pp = p.prefix();
+			if (pp.endsWith("/")) {
+				final String relativePath = pp.substring( prefix.length(), pp.length() - 1 );
+				if (!relativePath.isEmpty())
+					subGroups.add(relativePath);
+			}
+		});
+
+		if (subGroups.size() <= 0) {
+			if(!isDirectory(normalPath))
+				throw new N5Exception.N5IOException(normalPath + " is not a valid group");
+		}
+
+		return subGroups.toArray(new String[0]);
 	}
 
-//	@Override
+
+	//	@Override
 	public void createDirectories(final URI normalPath) throws N5IOException {
 
 		if (!bucketExists() && createBucket) { // TODO: revisit bucket creation logic

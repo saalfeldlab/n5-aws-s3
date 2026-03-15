@@ -29,21 +29,27 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 //import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
 //import org.janelia.saalfeldlab.n5.RootedURI;
 //import org.janelia.saalfeldlab.n5.RootedURI.N5GroupPath;
+import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
 import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
 import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5FilePath;
 import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5GroupPath;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
@@ -153,7 +159,7 @@ public class AmazonS3RootedKeyValueAccess
 	//
 	// ------------------------------------------------------------------------
 
-//	@Override
+	//	@Override
 	public synchronized KeyValueAccess getKVA() {
 		if (kva == null) {
 			final String containerURI = URI.create("s3://" + bucketName + "/").resolve(root).toString();
@@ -216,21 +222,46 @@ public class AmazonS3RootedKeyValueAccess
 		}
 	}
 
-//	@Override
-//	public boolean isFile(final URI normalPath) {
-//		throw new UnsupportedOperationException("TODO. not implemented yet");
-//	}
-//
+	/**
+	 * Test whether the path is a file.
+	 * <p>
+	 * Checks whether {@code normalPath} has no trailing "/", then removes
+	 * leading "/" and checks whether the resulting {@code path} is a key.
+	 * <p>
+	 * Does not distinguish between an object not existing and not having
+	 * permissions to access the object.
+	 *
+	 * @param normalPath is expected to be in normalized form, no further
+	 *                   efforts are made to normalize it.
+	 * @return {@code true} if {@code path} exists as a key and has no trailing slash, {@code false} otherwise
+	 */
+	//	@Override
+	public boolean isFile(final URI normalPath) {
+		final String key = root.resolve(normalPath).getPath();
+		if (key.endsWith("/")) {
+			return false;
+		}
+
+		try {
+			// TODO needs testing.
+			// 	the exception thrown may depend on permissions
+			headObjectRequest(s3, bucketName, key, null);
+			return true;
+		} catch (N5NoSuchKeyException e) {
+			return false;
+		}
+	}
+
 //	@Override
 //	public boolean exists(final URI normalPath) {
 //		throw new UnsupportedOperationException("TODO. not implemented yet");
 //	}
-//
+
 //	@Override
 //	public long size(final URI normalPath) throws N5IOException {
 //		throw new UnsupportedOperationException("TODO. not implemented yet");
 //	}
-//
+
 //	@Override
 	public void write(final URI normalPath, final ReadData data) throws N5IOException {
 
@@ -266,12 +297,11 @@ public class AmazonS3RootedKeyValueAccess
 
 		if (subGroups.size() <= 0) {
 			if(!isDirectory(normalPath))
-				throw new N5Exception.N5IOException(normalPath + " is not a valid group");
+				throw new N5IOException(normalPath + " is not a valid group");
 		}
 
 		return subGroups.toArray(new String[0]);
 	}
-
 
 	//	@Override
 	public void createDirectories(final URI normalPath) throws N5IOException {
@@ -295,7 +325,7 @@ public class AmazonS3RootedKeyValueAccess
 			s3.putObject(putOb, RequestBody.fromBytes(new byte[0]));
 		}
 	}
-//
+
 //	@Override
 	public void delete(final URI normalPath) throws N5IOException {
 
@@ -319,4 +349,42 @@ public class AmazonS3RootedKeyValueAccess
 	}
 
 
+
+
+	// ------------------------------------------------------------------------
+	//
+	// -- from AmazonS3KeyValueAccess --
+	//
+
+	private static HeadObjectResponse headObjectRequest(final S3Client s3, final String bucketName, final String key, final String matchEtag) {
+
+		try {
+			final HeadObjectRequest request = HeadObjectRequest.builder()
+					.bucket(bucketName)
+					.key(key)
+					.ifMatch(matchEtag)
+					.build();
+			return s3.headObject(request);
+		} catch (final Exception e) {
+			throw wrapS3Exception(e);
+		}
+	}
+
+	private static N5IOException wrapS3Exception(final Exception e) {
+
+		if (e instanceof NoSuchKeyException) {
+			return new N5NoSuchKeyException("No such key", e);
+		} else if (e instanceof AwsServiceException) {
+			final int statusCode = ((AwsServiceException) e).awsErrorDetails().sdkHttpResponse().statusCode();
+			if (statusCode == 404 || statusCode == 403) {
+				return new N5NoSuchKeyException("No such key", e);
+			} else if (statusCode == 412) {
+				return new N5Exception.N5ConcurrentModificationException("eTag has changed since initial request", e);
+			} else {
+				return new N5IOException("S3 Exception", e);
+			}
+		} else {
+			return new N5IOException(e);
+		}
+	}
 }

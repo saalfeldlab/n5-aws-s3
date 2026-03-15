@@ -252,6 +252,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean exists(final String normalPath) {
 
+		System.out.println("AmazonS3KeyValueAccess.exists");
 		return isFile(normalPath) || isDirectory(normalPath);
 	}
 
@@ -355,6 +356,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public boolean rooted_isDirectory(String normalPath) {
 		return rkva.isDirectory(createURI(normalPath));
 	}
+
 	private static URI createURI(final String normalPath) throws N5IOException {
 		try {
 			return new URI(null, null, normalPath, null);
@@ -382,8 +384,13 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 	public boolean isFile(final String normalPath) {
 
 		System.out.println("AmazonS3KeyValueAccess.isFile");
+		new Throwable().printStackTrace();
 		final String key = AmazonS3Utils.getS3Key(normalPath);
 		return !key.endsWith("/") && keyExists(removeLeadingSlash(key));
+	}
+	@Override
+	public boolean rooted_isFile(String normalPath) {
+		return rkva.isFile(createURI(normalPath));
 	}
 
 	@Override

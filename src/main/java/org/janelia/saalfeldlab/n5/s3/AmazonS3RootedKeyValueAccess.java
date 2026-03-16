@@ -29,14 +29,11 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
-//import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
-//import org.janelia.saalfeldlab.n5.RootedURI;
-//import org.janelia.saalfeldlab.n5.RootedURI.N5GroupPath;
 import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
+import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
 import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
 import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5FilePath;
@@ -53,13 +50,13 @@ import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
-public class AmazonS3RootedKeyValueAccess
-//implements RootedKeyValueAccess
+public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 {
 
 	private final S3Client s3;
 	private final URI root;
 	private final String bucketName; // TODO: rename to "bucket"
+	private final LockingPolicy policy; // TODO: rename to "ioPolicy"
 	private S3IoPolicy ioPolicy;
 
 	private final boolean createBucket;
@@ -94,6 +91,9 @@ public class AmazonS3RootedKeyValueAccess
 		this.bucketName = bucketName;
 		this.root = root; // TODO: We expect root to be a relative URI ending in "/" (or ""). Make sure of that.
 		this.createBucket = createBucket;
+
+		final String ioPolicy = System.getProperty("n5.ioPolicy", "strict");
+		policy = LockingPolicy.fromString(ioPolicy);
 
 		this.ioPolicy = new S3IoPolicy.Unsafe(s3, bucketName); // TODO: IoPolicy
 
@@ -159,7 +159,7 @@ public class AmazonS3RootedKeyValueAccess
 	//
 	// ------------------------------------------------------------------------
 
-	//	@Override
+	@Override
 	public synchronized KeyValueAccess getKVA() {
 		if (kva == null) {
 			final String containerURI = URI.create("s3://" + bucketName + "/").resolve(root).toString();
@@ -168,15 +168,15 @@ public class AmazonS3RootedKeyValueAccess
 		return kva;
 	}
 	private AmazonS3KeyValueAccess kva;
-//
-//	@Override
+
+	@Override
 	public URI root() {
 		// TODO: Should this be root or the full "s3://..." URI ???
 		//       ==> What is RootedKeyValueAccess.root() used for ???
 		return root;
 	}
-//
-//	@Override
+
+	@Override
 	public VolatileReadData createReadData(final URI normalPath) throws N5IOException {
 
 		final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had createReadData(N5FilePath), we wouldn't have to do this
@@ -198,7 +198,7 @@ public class AmazonS3RootedKeyValueAccess
 	 * 		is expected to be in normalized form, no further efforts are made to normalize it.
 	 * @return {@code true} if {@code path} (with trailing "/") exists as a key, {@code false} otherwise
 	 */
-//	@Override
+	@Override
 	public boolean isDirectory(final URI normalPath) {
 
 		final URI uri = root.resolve(N5GroupPath.of(normalPath.getPath()).uri()); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
@@ -235,7 +235,7 @@ public class AmazonS3RootedKeyValueAccess
 	 *                   efforts are made to normalize it.
 	 * @return {@code true} if {@code path} exists as a key and has no trailing slash, {@code false} otherwise
 	 */
-	//	@Override
+	@Override
 	public boolean isFile(final URI normalPath) {
 		final String key = root.resolve(normalPath).getPath();
 		if (key.endsWith("/")) {
@@ -252,18 +252,18 @@ public class AmazonS3RootedKeyValueAccess
 		}
 	}
 
-//	@Override
+	@Override
 	public boolean exists(final URI normalPath) {
 		return isFile(normalPath) || isDirectory(normalPath);
 	}
 
-//	@Override
+	@Override
 	public long size(final URI normalPath) throws N5IOException {
 		final String key = root.resolve(normalPath).getPath();
 		return headObjectRequest(s3, bucketName, key, null).contentLength();
 	}
 
-//	@Override
+	@Override
 	public void write(final URI normalPath, final ReadData data) throws N5IOException {
 
 		final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had write(N5FilePath, ...), we wouldn't have to do this
@@ -274,7 +274,7 @@ public class AmazonS3RootedKeyValueAccess
 		}
 	}
 
-//	@Override
+	@Override
 	public String[] listDirectories(final URI normalPath) throws N5IOException {
 
 		final URI uri = root.resolve(N5GroupPath.of(normalPath.getPath()).uri()); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
@@ -304,7 +304,7 @@ public class AmazonS3RootedKeyValueAccess
 		return subGroups.toArray(new String[0]);
 	}
 
-	//	@Override
+	@Override
 	public void createDirectories(final URI normalPath) throws N5IOException {
 
 		if (!bucketExists() && createBucket) { // TODO: revisit bucket creation logic
@@ -327,7 +327,7 @@ public class AmazonS3RootedKeyValueAccess
 		}
 	}
 
-//	@Override
+	@Override
 	public void delete(final URI normalPath) throws N5IOException {
 
 		if (!bucketExists())

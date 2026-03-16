@@ -25,30 +25,43 @@
  */
 package org.janelia.saalfeldlab.n5.s3;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5Exception.N5ConcurrentModificationException;
 import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
 import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
+import org.janelia.saalfeldlab.n5.readdata.LazyRead;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
 import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
 import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5FilePath;
 import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5GroupPath;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+
+import static org.janelia.saalfeldlab.n5.s3.LockingPolicy.UNSAFE;
 
 public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 {
@@ -56,8 +69,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	private final S3Client s3;
 	private final URI root;
 	private final String bucketName; // TODO: rename to "bucket"
-	private final LockingPolicy policy; // TODO: rename to "ioPolicy"
-	private S3IoPolicy ioPolicy;
+	private final boolean verifyEtag;
 
 	private final boolean createBucket;
 	private Boolean bucketCheckedAndExists = null;
@@ -92,10 +104,8 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 		this.root = root; // TODO: We expect root to be a relative URI ending in "/" (or ""). Make sure of that.
 		this.createBucket = createBucket;
 
-		final String ioPolicy = System.getProperty("n5.ioPolicy", "strict");
-		policy = LockingPolicy.fromString(ioPolicy);
-
-		this.ioPolicy = new S3IoPolicy.Unsafe(s3, bucketName); // TODO: IoPolicy
+		final LockingPolicy policy = LockingPolicy.fromString(System.getProperty("n5.ioPolicy", "strict"));
+		verifyEtag = (policy != UNSAFE);
 
 		if (!bucketExists()) {
 			if (createBucket) {
@@ -171,20 +181,14 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 
 	@Override
 	public URI root() {
-		// TODO: Should this be root or the full "s3://..." URI ???
-		//       ==> What is RootedKeyValueAccess.root() used for ???
-		return root;
+		return URI.create("s3://" + bucketName + "/").resolve(root);
 	}
 
 	@Override
 	public VolatileReadData createReadData(final URI normalPath) throws N5IOException {
 
 		final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had createReadData(N5FilePath), we wouldn't have to do this
-		try {
-			return ioPolicy.read(key);
-		} catch (IOException e) {
-			throw new N5IOException(e);
-		}
+		return VolatileReadData.from(new S3LazyRead(key));
 	}
 
 	/**
@@ -245,7 +249,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 		try {
 			// TODO needs testing.
 			// 	the exception thrown may depend on permissions
-			headObjectRequest(s3, bucketName, key, null);
+			headObjectRequest(key, null);
 			return true;
 		} catch (N5NoSuchKeyException e) {
 			return false;
@@ -260,17 +264,22 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	@Override
 	public long size(final URI normalPath) throws N5IOException {
 		final String key = root.resolve(normalPath).getPath();
-		return headObjectRequest(s3, bucketName, key, null).contentLength();
+		return headObjectRequest(key, null).contentLength();
 	}
 
 	@Override
 	public void write(final URI normalPath, final ReadData data) throws N5IOException {
 
-		final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had write(N5FilePath, ...), we wouldn't have to do this
 		try {
-			ioPolicy.write(key, data);
-		} catch (IOException e) {
-			throw new N5IOException(e);
+			final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had write(N5FilePath, ...), we wouldn't have to do this
+			final PutObjectRequest putRequest = PutObjectRequest.builder()
+					.bucket(bucketName)
+					.key(key)
+					.build();
+
+			s3.putObject(putRequest, RequestBody.fromBytes(data.allBytes()));
+		} catch (final Exception e) {
+			throw wrapS3Exception(e);
 		}
 	}
 
@@ -333,7 +342,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 		if (!bucketExists())
 			return;
 
-		final URI uri = root.resolve(normalPath); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
+		final URI uri = root.resolve(normalPath);
 		final String key = uri.getPath();
 
 		// remove bucket when deleting "/"
@@ -343,29 +352,117 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 		}
 
 		try {
-			ioPolicy.delete(key);
-		} catch (IOException e) {
-			throw new N5IOException(e);
+			if (!key.endsWith("/")) {
+				final DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
+						.bucket(bucketName)
+						.key(key)
+						.build();
+				s3.deleteObject(deleteRequest);
+			}
+
+			final String prefix = key.endsWith("/") ? key : key + "/"; // TODO: Do this using N5Path?
+			final ListObjectsV2Request listObjectsRequest = ListObjectsV2Request.builder()
+					.bucket(bucketName)
+					.prefix(prefix)
+					.build();
+
+			ListObjectsV2Response objectsListing;
+			do {
+				objectsListing = s3.listObjectsV2(listObjectsRequest);
+				final List<ObjectIdentifier> objectsToDelete = objectsListing.contents().stream()
+						.map(obj -> ObjectIdentifier.builder().key(obj.key()).build())
+						.collect(Collectors.toList());
+
+				if (!objectsToDelete.isEmpty()) {
+					final DeleteObjectsRequest deleteRequest = DeleteObjectsRequest.builder()
+							.bucket(bucketName)
+							.delete(Delete.builder().objects(objectsToDelete).build())
+							.build();
+					s3.deleteObjects(deleteRequest);
+				}
+			} while (objectsListing.isTruncated());
+		} catch (Exception e) {
+			throw wrapS3Exception(e);
 		}
 	}
 
 
-
-
+	//
 	// ------------------------------------------------------------------------
 	//
-	// -- from AmazonS3KeyValueAccess --
-	//
 
-	private static HeadObjectResponse headObjectRequest(final S3Client s3, final String bucketName, final String key, final String matchEtag) {
+
+	class S3LazyRead implements LazyRead {
+
+		private final String key;
+		private volatile String eTag = null;
+
+		S3LazyRead(final String key) {
+			this.key = key;
+		}
+
+		@Override
+		public ReadData materialize(final long offset, final long length) throws N5IOException {
+
+			final ResponseBytes<GetObjectResponse> response = getObjectRequest(key, offset, length, eTag);
+
+			if (verifyEtag && eTag == null)
+				eTag = response.response().eTag();
+
+			return ReadData.from(response.asByteArray());
+		}
+
+		@Override
+		public long size() throws N5IOException {
+
+			final HeadObjectResponse response = headObjectRequest(key, eTag);
+
+			if (verifyEtag && eTag == null)
+				eTag = response.eTag();
+
+			return response.contentLength();
+		}
+
+		@Override
+		public void close() {
+		}
+	}
+
+	private HeadObjectResponse headObjectRequest(final String key, final String ifMatch) throws N5IOException {
 
 		try {
 			final HeadObjectRequest request = HeadObjectRequest.builder()
 					.bucket(bucketName)
 					.key(key)
-					.ifMatch(matchEtag)
+					.ifMatch(ifMatch)
 					.build();
 			return s3.headObject(request);
+		} catch (final Exception e) {
+			throw wrapS3Exception(e);
+		}
+	}
+
+	private ResponseBytes<GetObjectResponse> getObjectRequest(final String key, final long offset, final long length, final String ifMatch) throws N5IOException {
+
+		try {
+			final GetObjectRequest.Builder requestBuilder = GetObjectRequest.builder()
+					.bucket(bucketName)
+					.key(key)
+					.ifMatch(ifMatch);
+
+			// Only add range header if we're doing a partial read
+			if (offset > 0 || length > 0) {
+				// HTTP Range header format: "bytes=start-end"
+				// If length is 0 or negative, read from offset to end of file
+				final String range = length > 0
+						? String.format("bytes=%d-%d", offset, offset + length - 1)
+						: String.format("bytes=%d-", offset);
+				requestBuilder.range(range);
+			}
+
+			final GetObjectRequest request = requestBuilder.build();
+
+			return s3.getObject(request, ResponseTransformer.toBytes());
 		} catch (final Exception e) {
 			throw wrapS3Exception(e);
 		}
@@ -380,7 +477,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 			if (statusCode == 404 || statusCode == 403) {
 				return new N5NoSuchKeyException("No such key", e);
 			} else if (statusCode == 412) {
-				return new N5Exception.N5ConcurrentModificationException("eTag has changed since initial request", e);
+				return new N5ConcurrentModificationException("eTag has changed since initial request", e);
 			} else {
 				return new N5IOException("S3 Exception", e);
 			}

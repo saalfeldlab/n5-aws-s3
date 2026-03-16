@@ -253,14 +253,15 @@ public class AmazonS3RootedKeyValueAccess
 	}
 
 //	@Override
-//	public boolean exists(final URI normalPath) {
-//		throw new UnsupportedOperationException("TODO. not implemented yet");
-//	}
+	public boolean exists(final URI normalPath) {
+		return isFile(normalPath) || isDirectory(normalPath);
+	}
 
 //	@Override
-//	public long size(final URI normalPath) throws N5IOException {
-//		throw new UnsupportedOperationException("TODO. not implemented yet");
-//	}
+	public long size(final URI normalPath) throws N5IOException {
+		final String key = root.resolve(normalPath).getPath();
+		return headObjectRequest(s3, bucketName, key, null).contentLength();
+	}
 
 //	@Override
 	public void write(final URI normalPath, final ReadData data) throws N5IOException {

@@ -35,11 +35,11 @@ import org.janelia.saalfeldlab.n5.N5Exception.N5ConcurrentModificationException;
 import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
 import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
+import org.janelia.saalfeldlab.n5.RootedURI.N5FilePath;
+import org.janelia.saalfeldlab.n5.RootedURI.N5GroupPath;
 import org.janelia.saalfeldlab.n5.readdata.LazyRead;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
 import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
-import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5FilePath;
-import org.janelia.saalfeldlab.n5.s3.S3RootedURI.N5GroupPath;
 import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -117,6 +117,16 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 			}
 		}
 	}
+
+	public AmazonS3RootedKeyValueAccess(
+			final S3Client s3,
+			final String bucketName,
+			final String root,
+			final boolean createBucket) throws N5IOException {
+
+		this(s3, bucketName, N5GroupPath.of(root).uri(), createBucket);
+	}
+
 
 	// ------------------------------------------------------------------------
 	//

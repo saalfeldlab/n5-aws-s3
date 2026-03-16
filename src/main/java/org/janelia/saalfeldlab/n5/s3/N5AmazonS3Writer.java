@@ -53,7 +53,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param bucketName the bucket name
      * @param basePath the base path relative to the bucket root
      * @param gsonBuilder a GsonBuilder with custom configuration.
-     * @param cacheAttributes 
+     * @param cacheAttributes
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
@@ -65,8 +65,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
 	public N5AmazonS3Writer(final S3Client s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
 
 		super(
-				new AmazonS3KeyValueAccess(s3, "s3://" + bucketName + "/" + basePath, true),
-				basePath,
+				new AmazonS3RootedKeyValueAccess(s3, bucketName,basePath, true),
 				gsonBuilder,
 				cacheAttributes);
 	}
@@ -77,7 +76,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
      * @param basePath the base path relative to the bucket root
-     * @param cacheAttributes 
+     * @param cacheAttributes
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
@@ -130,7 +129,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
      * @param gsonBuilder a GsonBuilder with custom configuration.
-     * @param cacheAttributes 
+     * @param cacheAttributes
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
@@ -151,7 +150,7 @@ public class N5AmazonS3Writer extends N5KeyValueWriter {
      *
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
-     * @param cacheAttributes 
+     * @param cacheAttributes
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires

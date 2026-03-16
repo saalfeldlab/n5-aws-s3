@@ -352,11 +352,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		return prefixExists(key);
 	}
 
-	@Override
-	public boolean rooted_isDirectory(String normalPath) {
-		return rkva.isDirectory(createURI(normalPath));
-	}
-
 	private static URI createURI(final String normalPath) throws N5IOException {
 		try {
 			return new URI(null, null, normalPath, null);
@@ -388,10 +383,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		final String key = AmazonS3Utils.getS3Key(normalPath);
 		return !key.endsWith("/") && keyExists(removeLeadingSlash(key));
 	}
-	@Override
-	public boolean rooted_isFile(String normalPath) {
-		return rkva.isFile(createURI(normalPath));
-	}
 
 	@Override
 	public long size(String normalPath) throws N5NoSuchKeyException {
@@ -413,10 +404,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
             throw new N5IOException(e);
         }
 	}
-	@Override
-	public VolatileReadData rooted_createReadData(String normalPath) throws N5Exception.N5IOException {
-		return rkva.createReadData(createURI(normalPath));
-	}
 
 	@Override
 	public void write(final String normalPath, final ReadData data) throws N5IOException {
@@ -430,10 +417,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
         } catch (IOException e) {
             throw new N5IOException(e);
         }
-	}
-	@Override
-	public void rooted_write(final String normalPath, final ReadData data) {
-		rkva.write(createURI(normalPath), data);
 	}
 
 	@Override
@@ -449,10 +432,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			directories[i] = normalize(directories[i]);
 		}
 		return directories;
-	}
-	@Override
-	public String[] rooted_listDirectories(final String normalPath) {
-		return rkva.listDirectories(createURI(normalPath));
 	}
 
 	private String[] list(final String normalPath, final boolean onlyDirectories) {
@@ -513,10 +492,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 			s3.putObject(putOb, RequestBody.fromBytes(new byte[0]));
 		}
 	}
-	@Override
-	public void rooted_createDirectories(String normalPath) {
-		rkva.createDirectories(createURI(normalPath));
-	}
 
 	@Override
 	public void delete(final String normalPath) {
@@ -539,10 +514,6 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
         } catch (IOException e) {
             throw new N5IOException(e);
         }
-	}
-	@Override
-	public void rooted_delete(String normalPath) {
-		rkva.delete(createURI(normalPath));
 	}
 
 	public static HeadObjectResponse headObjectRequest(final S3Client s3, final String bucketName, final String key, final String matchEtag) {

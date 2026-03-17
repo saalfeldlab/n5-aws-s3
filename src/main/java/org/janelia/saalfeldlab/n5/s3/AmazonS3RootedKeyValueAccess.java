@@ -34,6 +34,7 @@ import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Exception.N5ConcurrentModificationException;
 import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
+import org.janelia.saalfeldlab.n5.N5Path;
 import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Path.N5FilePath;
 import org.janelia.saalfeldlab.n5.N5Path.N5GroupPath;
@@ -195,9 +196,9 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	}
 
 	@Override
-	public VolatileReadData createReadData(final URI normalPath) throws N5IOException {
+	public VolatileReadData createReadData(final N5FilePath normalPath) throws N5IOException {
 
-		final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had createReadData(N5FilePath), we wouldn't have to do this
+		final String key = root.resolve(normalPath.uri()).getPath();
 		return VolatileReadData.from(new S3LazyRead(key));
 	}
 
@@ -213,9 +214,9 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	 * @return {@code true} if {@code path} (with trailing "/") exists as a key, {@code false} otherwise
 	 */
 	@Override
-	public boolean isDirectory(final URI normalPath) {
+	public boolean isDirectory(final N5Path normalPath) {
 
-		final URI uri = root.resolve(N5GroupPath.of(normalPath.getPath()).uri()); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
+		final URI uri = root.resolve(normalPath.asGroup().uri());
 		final String prefix = uri.getPath();
 
 		if (prefix.isEmpty()) {
@@ -250,12 +251,13 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	 * @return {@code true} if {@code path} exists as a key and has no trailing slash, {@code false} otherwise
 	 */
 	@Override
-	public boolean isFile(final URI normalPath) {
-		final String key = root.resolve(normalPath).getPath();
-		if (key.endsWith("/")) {
+	public boolean isFile(final N5Path normalPath) {
+
+		if (normalPath.isGroup()) {
 			return false;
 		}
 
+		final String key = root.resolve(normalPath.uri()).getPath();
 		try {
 			// TODO needs testing.
 			// 	the exception thrown may depend on permissions
@@ -267,21 +269,21 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	}
 
 	@Override
-	public boolean exists(final URI normalPath) {
+	public boolean exists(final N5Path normalPath) {
 		return isFile(normalPath) || isDirectory(normalPath);
 	}
 
 	@Override
-	public long size(final URI normalPath) throws N5IOException {
-		final String key = root.resolve(normalPath).getPath();
+	public long size(final N5FilePath normalPath) throws N5IOException {
+		final String key = root.resolve(normalPath.uri()).getPath();
 		return headObjectRequest(key, null).contentLength();
 	}
 
 	@Override
-	public void write(final URI normalPath, final ReadData data) throws N5IOException {
+	public void write(final N5FilePath normalPath, final ReadData data) throws N5IOException {
 
 		try {
-			final String key = N5FilePath.of(root.resolve(normalPath).getPath()).normalPath(); // TODO (N5Path): if we had write(N5FilePath, ...), we wouldn't have to do this
+			final String key = root.resolve(normalPath.uri()).getPath();
 			final PutObjectRequest putRequest = PutObjectRequest.builder()
 					.bucket(bucketName)
 					.key(key)
@@ -294,10 +296,9 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	}
 
 	@Override
-	public String[] listDirectories(final URI normalPath) throws N5IOException {
+	public String[] listDirectories(final N5GroupPath normalPath) throws N5IOException {
 
-		final URI uri = root.resolve(N5GroupPath.of(normalPath.getPath()).uri()); // TODO (N5Path): if we had isDirectory(N5GroupPath), we wouldn't have to do this
-		final String prefix = uri.getPath();
+		final String prefix = root.resolve(normalPath.uri()).getPath();
 
 		final ListObjectsV2Request listObjectsV2Request = ListObjectsV2Request.builder()
 				.bucket(bucketName)
@@ -324,14 +325,14 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	}
 
 	@Override
-	public void createDirectories(final URI normalPath) throws N5IOException {
+	public void createDirectories(final N5GroupPath normalPath) throws N5IOException {
 
 		if (!bucketExists() && createBucket) { // TODO: revisit bucket creation logic
 			createBucket();
 		}
 
-		final N5GroupPath group = N5GroupPath.of(root.resolve(normalPath).getPath());
-		if (group.normalPath().isEmpty())
+		final N5GroupPath group = N5GroupPath.of(root.resolve(normalPath.uri()).getPath()); // TODO (N5Path): should have N5GroupPath.of(URI) ?
+		if (group.path().isEmpty()) // TODO (N5Path): should have N5GroupPath.isEmpty() ?
 			return;
 
 		String key = "";
@@ -347,12 +348,12 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	}
 
 	@Override
-	public void delete(final URI normalPath) throws N5IOException {
+	public void delete(final N5Path normalPath) throws N5IOException {
 
 		if (!bucketExists())
 			return;
 
-		final URI uri = root.resolve(normalPath);
+		final URI uri = root.resolve(normalPath.uri());
 		final String key = uri.getPath();
 
 		// remove bucket when deleting "/"
@@ -370,7 +371,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 				s3.deleteObject(deleteRequest);
 			}
 
-			final String prefix = key.endsWith("/") ? key : key + "/"; // TODO: Do this using N5Path?
+			final String prefix = key.endsWith("/") ? key : key + "/";
 			final ListObjectsV2Request listObjectsRequest = ListObjectsV2Request.builder()
 					.bucket(bucketName)
 					.prefix(prefix)

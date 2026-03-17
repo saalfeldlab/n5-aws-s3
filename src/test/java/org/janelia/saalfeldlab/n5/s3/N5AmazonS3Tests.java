@@ -39,6 +39,7 @@ import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5KeyValueReader;
 import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
+import org.janelia.saalfeldlab.n5.N5Path;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.s3.backend.BackendS3Factory;
@@ -170,7 +171,7 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 			final String bucketName = location.getBucketName();
 			try {
 				final AmazonS3RootedKeyValueAccess rkva = new AmazonS3RootedKeyValueAccess(lateinitS3, bucketName, URI.create(""), true);
-				rkva.delete(URI.create(""));
+				rkva.delete(N5Path.of(""));
 //				final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(lateinitS3, N5URI.encodeAsUri("s3://" + bucketName), true);
 //				kva.delete(kva.normalize("/"));
 			} catch (Exception e) {

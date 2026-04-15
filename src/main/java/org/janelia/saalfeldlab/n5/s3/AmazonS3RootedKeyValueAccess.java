@@ -37,7 +37,7 @@ import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
 import org.janelia.saalfeldlab.n5.N5Path;
 import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5Path.N5FilePath;
-import org.janelia.saalfeldlab.n5.N5Path.N5GroupPath;
+import org.janelia.saalfeldlab.n5.N5Path.N5DirectoryPath;
 import org.janelia.saalfeldlab.n5.readdata.LazyRead;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
 import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
@@ -125,7 +125,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 			final String root,
 			final boolean createBucket) throws N5IOException {
 
-		this(s3, bucketName, N5GroupPath.of(root).uri(), createBucket);
+		this(s3, bucketName, N5DirectoryPath.of(root).uri(), createBucket);
 	}
 
 
@@ -216,7 +216,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	@Override
 	public boolean isDirectory(final N5Path normalPath) {
 
-		final URI uri = root.resolve(normalPath.asGroup().uri());
+		final URI uri = root.resolve(normalPath.asDirectory().uri());
 		final String prefix = uri.getPath();
 
 		if (prefix.isEmpty()) {
@@ -253,7 +253,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	@Override
 	public boolean isFile(final N5Path normalPath) {
 
-		if (normalPath.isGroup()) {
+		if (normalPath.isDirectory()) {
 			return false;
 		}
 
@@ -296,7 +296,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	}
 
 	@Override
-	public String[] listDirectories(final N5GroupPath normalPath) throws N5IOException {
+	public String[] listDirectories(final N5DirectoryPath normalPath) throws N5IOException {
 
 		final String prefix = root.resolve(normalPath.uri()).getPath();
 
@@ -325,14 +325,14 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	}
 
 	@Override
-	public void createDirectories(final N5GroupPath normalPath) throws N5IOException {
+	public void createDirectories(final N5DirectoryPath normalPath) throws N5IOException {
 
 		if (!bucketExists() && createBucket) { // TODO: revisit bucket creation logic
 			createBucket();
 		}
 
-		final N5GroupPath group = N5GroupPath.of(root.resolve(normalPath.uri()).getPath()); // TODO (N5Path): should have N5GroupPath.of(URI) ?
-		if (group.path().isEmpty()) // TODO (N5Path): should have N5GroupPath.isEmpty() ?
+		final N5DirectoryPath group = N5DirectoryPath.of(root.resolve(normalPath.uri()).getPath()); // TODO (N5Path): should have N5DirectoryPath.of(URI) ?
+		if (group.path().isEmpty()) // TODO (N5Path): should have N5DirectoryPath.isEmpty() ?
 			return;
 
 		String key = "";

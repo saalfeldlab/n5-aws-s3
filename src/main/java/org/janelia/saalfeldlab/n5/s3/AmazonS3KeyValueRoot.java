@@ -318,7 +318,7 @@ public class AmazonS3KeyValueRoot implements KeyValueRoot
 
 		if (subGroups.size() <= 0) {
 			if(!isDirectory(normalPath))
-				throw new N5IOException(normalPath + " is not a valid group");
+				throw new N5NoSuchKeyException(normalPath + " is not a valid group");
 		}
 
 		return subGroups.toArray(new String[0]);

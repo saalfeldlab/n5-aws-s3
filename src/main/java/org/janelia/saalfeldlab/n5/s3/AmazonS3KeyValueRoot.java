@@ -35,7 +35,7 @@ import org.janelia.saalfeldlab.n5.N5Exception.N5ConcurrentModificationException;
 import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
 import org.janelia.saalfeldlab.n5.N5Path;
-import org.janelia.saalfeldlab.n5.RootedKeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueRoot;
 import org.janelia.saalfeldlab.n5.N5Path.N5FilePath;
 import org.janelia.saalfeldlab.n5.N5Path.N5DirectoryPath;
 import org.janelia.saalfeldlab.n5.readdata.LazyRead;
@@ -64,7 +64,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import static org.janelia.saalfeldlab.n5.s3.LockingPolicy.UNSAFE;
 
-public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
+public class AmazonS3KeyValueRoot implements KeyValueRoot
 {
 
 	private final S3Client s3;
@@ -76,7 +76,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	private Boolean bucketCheckedAndExists = null;
 
 	/**
-	 * Opens an {@link AmazonS3RootedKeyValueAccess} using an {@link S3Client}
+	 * Opens an {@link AmazonS3KeyValueRoot} using an {@link S3Client}
 	 * client and a given bucket name.
 	 * <p>
 	 * If the bucket does not exist and {@code createBucket==true}, the bucket
@@ -94,7 +94,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	 * @throws N5IOException
 	 * 		if the access could not be created
 	 */
-	public AmazonS3RootedKeyValueAccess(
+	public AmazonS3KeyValueRoot(
 			final S3Client s3,
 			final String bucketName,
 			final URI root,
@@ -119,7 +119,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 		}
 	}
 
-	public AmazonS3RootedKeyValueAccess(
+	public AmazonS3KeyValueRoot(
 			final S3Client s3,
 			final String bucketName,
 			final String root,
@@ -191,7 +191,7 @@ public class AmazonS3RootedKeyValueAccess implements RootedKeyValueAccess
 	private AmazonS3KeyValueAccess kva;
 
 	@Override
-	public URI root() {
+	public URI uri() {
 		return URI.create("s3://" + bucketName + "/").resolve(root);
 	}
 

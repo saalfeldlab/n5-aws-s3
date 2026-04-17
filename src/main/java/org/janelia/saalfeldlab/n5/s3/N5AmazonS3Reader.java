@@ -69,7 +69,7 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	public N5AmazonS3Reader(final S3Client s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws N5Exception {
 
 		super(
-				new AmazonS3RootedKeyValueAccess(s3, bucketName, basePath, false),
+				new AmazonS3KeyValueRoot(s3, bucketName, basePath, false),
 				gsonBuilder,
 				cacheMeta);
 

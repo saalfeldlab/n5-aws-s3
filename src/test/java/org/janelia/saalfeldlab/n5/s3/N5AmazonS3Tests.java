@@ -170,7 +170,7 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 		for (LocationInBucket location : LocationInBucket.values()) {
 			final String bucketName = location.getBucketName();
 			try {
-				final AmazonS3RootedKeyValueAccess rkva = new AmazonS3RootedKeyValueAccess(lateinitS3, bucketName, URI.create(""), true);
+				final AmazonS3KeyValueRoot rkva = new AmazonS3KeyValueRoot(lateinitS3, bucketName, URI.create(""), true);
 				rkva.delete(N5Path.of(""));
 //				final AmazonS3KeyValueAccess kva = new AmazonS3KeyValueAccess(lateinitS3, N5URI.encodeAsUri("s3://" + bucketName), true);
 //				kva.delete(kva.normalize("/"));
@@ -230,12 +230,12 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 
 		final String bucketName = getS3Bucket(s3ContainerUri);
 		final String root = AmazonS3Utils.getS3Key(s3ContainerUri);
-		final AmazonS3RootedKeyValueAccess rkva = new AmazonS3RootedKeyValueAccess(getS3(), bucketName, root, true);
+		final AmazonS3KeyValueRoot rkva = new AmazonS3KeyValueRoot(getS3(), bucketName, root, true);
 
 		return new N5KeyValueWriter(rkva, gson, useCache.cache) {
 
 			{
-				final URI containerUri = rkva.root();
+				final URI containerUri = rkva.uri();
 				final boolean localS3 = containerUri.getAuthority().contains("localhost");
 				if (!localS3) {
 					/* Creating a bucket on S3 only provides a guarantee of eventual consistency. To
@@ -272,7 +272,7 @@ public class N5AmazonS3Tests extends AbstractN5Test {
 
 		final String bucketName = getS3Bucket(location);
 		final String root = AmazonS3Utils.getS3Key(location);
-		final AmazonS3RootedKeyValueAccess rkva = new AmazonS3RootedKeyValueAccess(getS3(), bucketName, root, false);
+		final AmazonS3KeyValueRoot rkva = new AmazonS3KeyValueRoot(getS3(), bucketName, root, false);
 		return new N5KeyValueReader(rkva, gson, useCache.cache);
 	}
 

@@ -108,7 +108,7 @@ public class AmazonS3KeyValueAccess implements KeyValueAccess {
 		}
 	}
 
-	public AmazonS3RootedKeyValueAccess rkva;
+	public AmazonS3KeyValueRoot rkva;
 
 	public void setIoPolicy(S3IoPolicy ioPolicy) {
 		this.ioPolicy = ioPolicy;

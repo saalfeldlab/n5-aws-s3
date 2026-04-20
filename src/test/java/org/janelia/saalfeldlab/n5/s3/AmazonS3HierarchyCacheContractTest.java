@@ -3,9 +3,9 @@ package org.janelia.saalfeldlab.n5.s3;
 import java.net.URI;
 import java.util.ArrayList;
 import org.janelia.saalfeldlab.n5.HierarchyStore;
-import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.KeyValueRoot;
 import org.janelia.saalfeldlab.n5.KeyValueRootHierarchyStore;
+import org.janelia.saalfeldlab.n5.N5Path.N5DirectoryPath;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.cache.AbstractHierarchyCacheContractTest;
 import org.janelia.saalfeldlab.n5.s3.backend.BackendS3Factory;
@@ -40,7 +40,7 @@ public class AmazonS3HierarchyCacheContractTest extends AbstractHierarchyCacheCo
 	@After
 	public void after() {
 		// clean up, deletes any buckets that were created
-		kvrs.forEach( kvr -> kvr.delete("/"));
+		kvrs.forEach(kvr -> kvr.delete(N5DirectoryPath.of("/")));
 		kvrs.clear();
 	}
 

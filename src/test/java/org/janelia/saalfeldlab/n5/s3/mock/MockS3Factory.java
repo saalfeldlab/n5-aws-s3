@@ -71,9 +71,6 @@ public class MockS3Factory {
 			return;
 		}
 
-		// TODO if the server fails to start for some reason
-		// e.g. minio server not installed
-		// probably should not fail, but report "mock test skipped" or something
 		minioServerDirectory = createTmpServerDirectory();
 		ProcessBuilder processBuilder = new ProcessBuilder("minio", "server", ".");
 		processBuilder.directory(minioServerDirectory.toFile());
@@ -104,7 +101,7 @@ public class MockS3Factory {
 		return tempDirectory;
 	}
 
-	private static boolean isMinioServerRunning() {
+	public static boolean isMinioServerRunning() {
 
 		try {
 			minioUri.toURL().openConnection().connect();

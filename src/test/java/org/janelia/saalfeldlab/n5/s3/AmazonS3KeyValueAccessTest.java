@@ -1,10 +1,13 @@
 package org.janelia.saalfeldlab.n5.s3;
 
+import static org.junit.Assume.assumeTrue;
+
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.kva.AbstractKeyValueAccessTest;
 import org.janelia.saalfeldlab.n5.s3.mock.MockS3Factory;
 import org.junit.After;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
@@ -16,7 +19,14 @@ import java.time.Duration;
 import java.util.ArrayList;
 
 public class AmazonS3KeyValueAccessTest extends AbstractKeyValueAccessTest {
-	
+
+	@BeforeClass
+	public static void before() {
+
+		MockS3Factory.getOrCreateS3();
+		assumeTrue("mock s3 server not running", MockS3Factory.isMinioServerRunning());
+	}
+
 	private ArrayList<AmazonS3KeyValueAccess> kvas;
 
 	@Override

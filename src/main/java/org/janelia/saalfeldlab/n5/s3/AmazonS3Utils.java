@@ -1,7 +1,10 @@
 package org.janelia.saalfeldlab.n5.s3;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -31,6 +34,8 @@ public class AmazonS3Utils {
 
 	public static final Pattern AWS_ENDPOINT_PATTERN = Pattern.compile("^(.+\\.)?(s3\\..*amazonaws\\.com)", Pattern.CASE_INSENSITIVE);
 	public final static Pattern S3_SCHEME = Pattern.compile("s3", Pattern.CASE_INSENSITIVE);
+
+	private static final int BUCKET_REGION_QUERY_TIMEOUT_MS = 5000;
 
 	// A Region is required, but we won't be making use of it
 	public static final S3Utilities UTIL = S3Utilities.builder()
@@ -157,10 +162,54 @@ public class AmazonS3Utils {
 		return getS3Region(uri, Region.of(region));
 	}
 
+	/**
+	 * Get the region of the bucket in {@code uri}, from the uri if present, otherwise by querying the bucket.
+	 *
+	 * @param uri the s3 uri containing the bucket
+	 * @param region the fallback if the region is neither in the uri nor returned by the query
+	 * @return the bucket region
+	 */
 	public static Region getS3Region(final S3Uri uri, final Region region) {
 
-        return uri.region().orElse(region);
-    }
+		final Region regionFromUri = uri.region().orElseGet(() -> queryRegionFromBucket(uri));
+		return regionFromUri != null ? regionFromUri : region;
+	}
+
+	/**
+	 * Query the region of the bucket in {@code uri} from the {@code x-amz-bucket-region} header of a HEAD bucket request.
+	 *
+	 * @param uri the s3 uri containing the bucket
+	 * @return the bucket region, or null if the bucket is absent or the endpoint doesn't return the header
+	 */
+	@Nullable
+	public static Region queryRegionFromBucket(final S3Uri uri) {
+
+		final String bucket = uri.bucket().orElse(null);
+		if (bucket == null)
+			return null;
+
+		final URI endpoint = uri.isPathStyle() ? parseEndpointFromURI(uri.uri().toString()) : null;
+		final String bucketUrl = (endpoint != null ? endpoint.toString() : "https://s3.amazonaws.com") + "/" + bucket;
+
+		HttpURLConnection connection = null;
+		try {
+			connection = (HttpURLConnection)new URL(bucketUrl).openConnection();
+			connection.setRequestMethod("HEAD");
+			/* the header is on the 301 (wrong region) and 403 (no access) responses too, so don't follow redirects */
+			connection.setInstanceFollowRedirects(false);
+			connection.setConnectTimeout(BUCKET_REGION_QUERY_TIMEOUT_MS);
+			connection.setReadTimeout(BUCKET_REGION_QUERY_TIMEOUT_MS);
+			connection.getResponseCode();
+			return Optional.ofNullable(connection.getHeaderField("x-amz-bucket-region"))
+					.map(Region::of)
+					.orElse(null);
+		} catch (final IOException e) {
+			return null;
+		} finally {
+			if (connection != null)
+				connection.disconnect();
+		}
+	}
 
 	public static AwsCredentialsProvider getS3Credentials(final AwsCredentials s3Credentials, final boolean s3Anonymous) {
 

@@ -18,11 +18,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Start MinIO Server
-        uses: comfuture/minio-action@v1
-        with:
-          access_key: minioadmin
-          secret_key: minioadmin
+      - name: Start SeaweedFS S3 server
+        run: |
+          mkdir -p /tmp/seaweedfs && chmod 777 /tmp/seaweedfs
+          docker run -d -p 9000:9000 --name seaweedfs \
+            -v /tmp/seaweedfs:/data \
+            -e "AWS_ACCESS_KEY_ID=n5test" \
+            -e "AWS_SECRET_ACCESS_KEY=n5testsecret" \
+            chrislusf/seaweedfs:4.48 mini -dir=/data -s3.port=9000 -master.telemetry=false
+          # wait until it's ready
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/status && exit 0
+            sleep 1
+          done
+          echo "SeaweedFS did not become ready"; docker logs seaweedfs; exit 1
       - name: Set up Java
         uses: actions/setup-java@v5
         with:

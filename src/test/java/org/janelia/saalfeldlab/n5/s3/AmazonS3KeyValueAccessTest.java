@@ -24,7 +24,7 @@ public class AmazonS3KeyValueAccessTest extends AbstractKeyValueAccessTest {
 	public static void before() {
 
 		MockS3Factory.getOrCreateS3();
-		assumeTrue("mock s3 server not running", MockS3Factory.isMinioServerRunning());
+		assumeTrue("mock s3 server not running", MockS3Factory.isMockServerRunning());
 	}
 
 	private ArrayList<AmazonS3KeyValueAccess> kvas;

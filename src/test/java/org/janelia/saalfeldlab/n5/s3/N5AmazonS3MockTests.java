@@ -15,7 +15,7 @@ public class N5AmazonS3MockTests extends N5AmazonS3Tests {
 	public static void before() {
 
 		MockS3Factory.getOrCreateS3();
-		assumeTrue("mock s3 server not running", MockS3Factory.isMinioServerRunning());
+		assumeTrue("mock s3 server not running", MockS3Factory.isMockServerRunning());
 	}
 
 	@Override

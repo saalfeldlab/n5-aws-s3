@@ -17,31 +17,32 @@ import software.amazon.awssdk.services.s3.S3Client;
 
 public class MockS3Factory {
 
-	public static Path minioServerDirectory;
+	public static final String DEFAULT_ACCESS_KEY = "n5test";
+
+	public static final String DEFAULT_SECRET_KEY = "n5testsecret";
+
+	public static Path mockServerDirectory;
 
 	private static final StringBuilder perTestHttpOut = new StringBuilder();
 
-	public static final URI minioUri = URI.create("http://localhost:9000/");
+	public static final URI mockUri = URI.create("http://localhost:9000/");
 
 	private static Process process;
 
-    private static S3Client s3;
+	private static S3Client s3;
 
-    public static S3Client getOrCreateS3() {
+	public static S3Client getOrCreateS3() {
 
-        if (s3 == null) {
-        	
+		if (s3 == null) {
+
 			if (process == null) {
 				try {
-					startMinioServer();
+					startMockServer();
 				} catch (Exception e) {}
 			}
 
-			final String userEnv = System.getenv("MINIO_ROOT_USER");
-			final String user = userEnv != null ? userEnv : "minioadmin";
-
-			final String pwEnv = System.getenv("MINIO_ROOT_PASSWORD");
-			final String pw = pwEnv != null ? pwEnv : "minioadmin";
+			final String user = accessKey();
+			final String pw = secretKey();
 			final AwsCredentialsProvider creds = new AwsCredentialsProvider() {
 
 				@Override
@@ -50,7 +51,7 @@ public class MockS3Factory {
 				}
 			};
 
-            try {
+			try {
 				s3 = S3Client.builder()
 						.forcePathStyle(true)
 						.region(Region.US_WEST_2)
@@ -60,24 +61,53 @@ public class MockS3Factory {
 			} catch (URISyntaxException e) {
 				e.printStackTrace();
 			}
-        }
+		}
 
-        return s3;
-    }
+		return s3;
+	}
 
-	public static void startMinioServer() throws Exception {
+	private static String accessKey() {
 
-		if( isMinioServerRunning() ) {
+		final String env = System.getenv("AWS_ACCESS_KEY_ID");
+		return env != null ? env : DEFAULT_ACCESS_KEY;
+	}
+
+	private static String secretKey() {
+
+		final String env = System.getenv("AWS_SECRET_ACCESS_KEY");
+		return env != null ? env : DEFAULT_SECRET_KEY;
+	}
+
+	public static void startMockServer() throws Exception {
+
+		if (isMockServerRunning()) {
 			return;
 		}
 
-		minioServerDirectory = createTmpServerDirectory();
-		ProcessBuilder processBuilder = new ProcessBuilder("minio", "server", ".");
-		processBuilder.directory(minioServerDirectory.toFile());
+		mockServerDirectory = createTmpServerDirectory();
+		/* absolute paths; with a relative `-dir` some components still write into the JVM's working directory */
+		final String dir = mockServerDirectory.toAbsolutePath().toString();
+		final ProcessBuilder processBuilder = new ProcessBuilder(
+				"weed", "mini",
+				"-dir=" + dir,
+				"-master.dir=" + dir,
+				"-admin.dataDir=" + dir + "/admin",
+				"-ip=127.0.0.1",
+				"-s3.port=9000",
+				"-s3.port.iceberg=0",
+				"-s3.port.lance=0",
+				"-admin.ui=false",
+				"-master.telemetry=false");
+		/* the S3 gateway reads its static credentials from the standard AWS env vars */
+		processBuilder.environment().put("AWS_ACCESS_KEY_ID", accessKey());
+		processBuilder.environment().put("AWS_SECRET_ACCESS_KEY", secretKey());
+		processBuilder.environment().put("PWD", dir);
+		processBuilder.directory(mockServerDirectory.toFile());
 		processBuilder.redirectErrorStream(true);
 		process = processBuilder.start();
+		/* only reached when we launched the server ourselves; an already running server is left alone */
+		Runtime.getRuntime().addShutdownHook(new Thread(process::destroy));
 		waitForReady();
-		/* give the server some time to finish startup */
 		final Thread clearStdout = new Thread(() -> {
 			try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
 				String line;
@@ -94,17 +124,17 @@ public class MockS3Factory {
 	private static Path createTmpServerDirectory() throws IOException {
 
 		/* deleteOnExit doesn't work on temporary files, so delete it manually and recreate explicitly...*/
-		final Path tempDirectory = Files.createTempDirectory("n5-minio-test-server-");
+		final Path tempDirectory = Files.createTempDirectory("n5-s3-mock-server-");
 		tempDirectory.toFile().delete();
 		tempDirectory.toFile().mkdirs();
 		tempDirectory.toFile().deleteOnExit();
 		return tempDirectory;
 	}
 
-	public static boolean isMinioServerRunning() {
+	public static boolean isMockServerRunning() {
 
 		try {
-			minioUri.toURL().openConnection().connect();
+			mockUri.toURL().openConnection().connect();
 			return true;
 		} catch (IOException e) {
 		}
@@ -116,7 +146,7 @@ public class MockS3Factory {
 		final Thread waitForConnect = new Thread(() -> {
 			while (true) {
 				try {
-					minioUri.toURL().openConnection().connect();
+					mockUri.toURL().openConnection().connect();
 					return;
 				} catch (Exception e) {
 					 try {

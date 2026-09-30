@@ -19,10 +19,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Start MinIO Server
-        uses: comfuture/minio-action@v1
-        with:
-          access_key: minioadmin
-          secret_key: minioadmin
+        run: |
+          docker run -d -p 9000:9000 --name minio \
+            -e "MINIO_ROOT_USER=minioadmin" \
+            -e "MINIO_ROOT_PASSWORD=minioadmin" \
+            quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+          # wait until it's ready
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && exit 0
+            sleep 1
+          done
+          echo "MinIO did not become ready"; docker logs minio; exit 1
       - name: Set up Java
         uses: actions/setup-java@v5
         with:

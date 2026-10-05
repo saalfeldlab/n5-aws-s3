@@ -247,7 +247,9 @@ public class AmazonS3Utils {
     public static S3Client createS3(final String uri, @Nullable final Consumer<S3ClientBuilder> builderConfig) {
 		S3ClientBuilder builder = S3Client.builder();
 
-        Region region = null;
+		// default to US_EAST_1 if region can not be inferred from uri or queried from server (see getS3Region)
+		// and not specified by builderConfig
+        Region region = Region.US_EAST_1;
 		URI endpoint = null;
         String bucket;
 		boolean isPathStyle;

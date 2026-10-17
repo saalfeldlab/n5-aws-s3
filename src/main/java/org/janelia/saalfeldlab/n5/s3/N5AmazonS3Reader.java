@@ -28,7 +28,7 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
      * @param bucketName the bucket name
      * @param basePath the base path relative to the bucket root
      * @param gsonBuilder a GsonBuilder with custom configuration.
-     * @param cacheMeta 
+     * @param cacheMeta
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
@@ -41,8 +41,7 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
 	public N5AmazonS3Reader(final S3Client s3, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws N5Exception {
 
 		super(
-				new AmazonS3KeyValueAccess(s3, "s3://" + bucketName + "/" + basePath, false),
-				basePath,
+				new AmazonS3KeyValueRoot(s3, bucketName, basePath, false),
 				gsonBuilder,
 				cacheMeta);
 
@@ -56,7 +55,7 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
      * @param basePath the base path relative to the bucket root
-     * @param cacheMeta 
+     * @param cacheMeta
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
@@ -109,7 +108,7 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
      * @param gsonBuilder a GsonBuilder with custom configuration.
-     * @param cacheMeta 
+     * @param cacheMeta
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
@@ -130,7 +129,7 @@ public class N5AmazonS3Reader extends N5KeyValueReader {
      *
      * @param s3 the amazon s3 instance
      * @param bucketName the bucket name
-     * @param cacheMeta 
+     * @param cacheMeta
      *            cache attribute and meta data
 	 *            Setting this to true avoids frequent reading and parsing of
 	 *            JSON encoded attributes and other meta data that requires
